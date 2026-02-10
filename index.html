@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>منصة التدريب الذهني | سريع وموثوق</title>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&family=Readex+Pro:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 </head>
 <body style="margin:0;font-family:'Tajawal',sans-serif;background:#0A0F1C;color:#E8ECF1;min-height:100vh">
 <style>
@@ -36,7 +38,97 @@ const $=id=>document.getElementById(id);
 const R=()=>$('R');
 const C={ac:'#00E5B8',ac2:'#6C5CE7',gld:'#FDCB6E',dng:'#FF7675',dim:'#6B7A90',cb:'rgba(26,35,64,0.7)',gb:'rgba(255,255,255,0.07)'};
 
-// ============ DATA ============
+// ============ FIREBASE INIT ============
+const firebaseConfig = {
+  apiKey: "AIzaSyBF4bf4bfSoQ1UYyyfoXfVVGWIJjZq8f8w",
+  authDomain: "brain-training-45add.firebaseapp.com",
+  projectId: "brain-training-45add",
+  storageBucket: "brain-training-45add.firebasestorage.app",
+  messagingSenderId: "1082619560355",
+  appId: "1:1082619560355:web:1767334b81b5cd0ff35a16"
+};
+firebase.initializeApp(firebaseConfig);
+const db=firebase.firestore();
+
+// ============ DATA LAYER (Firebase + localStorage cache) ============
+// Local cache helpers
+function gs(k){try{return JSON.parse(localStorage.getItem('bt4_'+k))}catch{return null}}
+function ss(k,v){localStorage.setItem('bt4_'+k,JSON.stringify(v))}
+
+// Firebase helpers
+async function fbGet(collection,docId){
+  try{
+    const doc=await db.collection(collection).doc(docId).get();
+    return doc.exists?doc.data():null;
+  }catch(e){console.warn('FB read error:',e);return null;}
+}
+async function fbSet(collection,docId,data){
+  try{await db.collection(collection).doc(docId).set(data,{merge:true});}
+  catch(e){console.warn('FB write error:',e);}
+}
+async function fbDel(collection,docId){
+  try{await db.collection(collection).doc(docId).delete();}
+  catch(e){console.warn('FB delete error:',e);}
+}
+
+// Employee list — Firebase-backed
+async function getEmpsAsync(){
+  const snap=await db.collection('employees').doc('list').get();
+  if(snap.exists&&snap.data().emps){
+    const emps=snap.data().emps;
+    ss('emp_list',emps); // cache locally
+    return emps;
+  }
+  // First time — seed with defaults
+  ss('emp_list',DEFAULT_EMPS);
+  await fbSet('employees','list',{emps:DEFAULT_EMPS});
+  return [...DEFAULT_EMPS];
+}
+function getEmps(){return gs('emp_list')||[...DEFAULT_EMPS]}
+function getEmpList(){return getEmps()}
+async function setEmps(list){
+  ss('emp_list',list);
+  await fbSet('employees','list',{emps:list});
+}
+
+// User data — Firebase-backed
+function loadU(email){
+  let d=gs('u_'+email)||{email,level:1,streak:0,best:0,lastA:null,hist:[],todayEx:{},todayD:null,pass:'1234',firstTime:true,dialect:null,typingProgress:{ar:1,en:1},points:0,excusedDays:[],goldenHist:[],weekendMins:0};
+  // Ensure new fields exist for old users
+  if(d.points===undefined)d.points=0;
+  if(!d.excusedDays)d.excusedDays=[];
+  if(!d.goldenHist)d.goldenHist=[];
+  if(d.weekendMins===undefined)d.weekendMins=0;
+  
+  if(d.todayD!==td()){
+    const y=new Date(Date.now()-864e5).toDateString();
+    const yesterdayPts=calcDailyPoints(d);
+    if(yesterdayPts>0)d.points+=yesterdayPts;
+    const penalty=calcMissedPenalty(d);
+    if(penalty<0)d.points=Math.max(0,d.points+penalty);
+    
+    if(d.lastA===y){d.streak++;d.best=Math.max(d.best,d.streak)}else if(d.lastA!==td())d.streak=0;
+    d.todayEx={};d.todayD=td();
+  }return d;
+}
+
+async function loadUAsync(email){
+  // Try Firebase first
+  const fbData=await fbGet('users',email.replace(/[.@]/g,'_'));
+  if(fbData){
+    ss('u_'+email,fbData); // cache locally
+  }
+  return loadU(email);
+}
+
+function saveU(d){
+  d.lastA=td();const t=d.hist.length;const a=t?d.hist.reduce((x,y)=>x+y.score,0)/t:0;
+  d.level=t>=100&&a>=75?5:t>=60&&a>=65?4:t>=35&&a>=55?3:t>=15?2:1;
+  ss('u_'+d.email,d);
+  // Async save to Firebase (non-blocking)
+  fbSet('users',d.email.replace(/[.@]/g,'_'),d);
+}
+
 const DEPTS=[{id:'hr',n:'الموارد البشرية'},{id:'finance',n:'المحاسبة'},{id:'real_estate',n:'إدارة العقارات'},{id:'operations',n:'التشغيل'},{id:'collection',n:'التحصيل'},{id:'admin',n:'الإدارة العليا'}];
 
 const DEFAULT_EMPS=[
@@ -53,11 +145,6 @@ const DEFAULT_EMPS=[
   {name:'حسن عابدين',uid:'h.abd',email:'h.abdeen@fast.sa',dept:'collection',role:'employee',sup:'mtlq'},
   {name:'سامح أبو سماح',uid:'smah',email:'sameh@fast.sa',dept:'operations',role:'employee',sup:'mtlq'},
 ];
-
-// Dynamic employee list (persisted)
-function getEmps(){return gs('emp_list')||[...DEFAULT_EMPS]}
-function setEmps(list){ss('emp_list',list)}
-function getEmpList(){return getEmps()}
 
 const EXT=[
   {id:'memory',n:'تطابق الذاكرة',ic:'🧩',d:'ذاكرة بصرية',cat:'memory',cl:'ذاكرة'},
@@ -247,8 +334,6 @@ const TYPING_LESSONS={
 let S={user:null,data:null,curEx:null,timer:null};
 let EX={};
 
-function gs(k){try{return JSON.parse(localStorage.getItem('bt4_'+k))}catch{return null}}
-function ss(k,v){localStorage.setItem('bt4_'+k,JSON.stringify(v))}
 function td(){return new Date().toDateString()}
 function dn(id){return DEPTS.find(d=>d.id===id)?.n||''}
 
@@ -263,61 +348,23 @@ const RANKS=[
 function getRank(pts){for(let i=RANKS.length-1;i>=0;i--)if(pts>=RANKS[i].min)return RANKS[i];return RANKS[0];}
 function getNextRank(pts){for(let i=0;i<RANKS.length;i++)if(pts<RANKS[i].min)return RANKS[i];return null;}
 
-// Calculate daily points: +100 full, +50 half, +20 opened, -30/-70/-120 for missed days
 function calcDailyPoints(d){
   const done=Object.keys(d.todayEx||{}).length;
-  if(done>=8)return 100;
-  if(done>=4)return 50;
-  if(done>=1)return 20;
-  return 0;
+  if(done>=8)return 100;if(done>=4)return 50;if(done>=1)return 20;return 0;
 }
-
-// Calculate penalty for consecutive missed days
 function calcMissedPenalty(d){
   if(!d.lastA)return 0;
   const last=new Date(d.lastA);const now=new Date();
   const diffDays=Math.floor((now-last)/(864e5));
-  if(diffDays<=1)return 0; // yesterday or today — no penalty
-  // Check for excused days
-  const excused=d.excusedDays||[];
-  let missedCount=0;
+  if(diffDays<=1)return 0;
+  const excused=d.excusedDays||[];let missedCount=0;
   for(let i=1;i<diffDays;i++){
     const checkDate=new Date(last.getTime()+i*864e5).toDateString();
     const isExcused=excused.some(e=>new Date(e.date).toDateString()===checkDate);
     const isWeekend=new Date(checkDate).getDay()===5||new Date(checkDate).getDay()===6;
     if(!isExcused&&!isWeekend)missedCount++;
   }
-  if(missedCount===0)return 0;
-  if(missedCount===1)return -30;
-  if(missedCount===2)return -70;
-  return -120; // 3+ days
-}
-
-function loadU(email){
-  let d=gs('u_'+email)||{email,level:1,streak:0,best:0,lastA:null,hist:[],todayEx:{},todayD:null,pass:'1234',firstTime:true,dialect:null,typingProgress:{ar:1,en:1},points:0,excusedDays:[],goldenHist:[],weekendMins:0};
-  // Ensure new fields exist for old users
-  if(d.points===undefined)d.points=0;
-  if(!d.excusedDays)d.excusedDays=[];
-  if(!d.goldenHist)d.goldenHist=[];
-  if(d.weekendMins===undefined)d.weekendMins=0;
-  
-  if(d.todayD!==td()){
-    const y=new Date(Date.now()-864e5).toDateString();
-    // Award points for yesterday's work
-    const yesterdayPts=calcDailyPoints(d);
-    if(yesterdayPts>0)d.points+=yesterdayPts;
-    // Deduct for missed days
-    const penalty=calcMissedPenalty(d);
-    if(penalty<0)d.points=Math.max(0,d.points+penalty);
-    
-    if(d.lastA===y){d.streak++;d.best=Math.max(d.best,d.streak)}else if(d.lastA!==td())d.streak=0;
-    d.todayEx={};d.todayD=td();
-  }return d;
-}
-function saveU(d){
-  d.lastA=td();const t=d.hist.length;const a=t?d.hist.reduce((x,y)=>x+y.score,0)/t:0;
-  d.level=t>=100&&a>=75?5:t>=60&&a>=65?4:t>=35&&a>=55?3:t>=15?2:1;
-  ss('u_'+d.email,d);
+  if(missedCount===0)return 0;if(missedCount===1)return -30;if(missedCount===2)return -70;return -120;
 }
 
 // ============ LOGIN ============
@@ -366,13 +413,15 @@ window.doForgot=function(){
   msg.style.color=C.ac;msg.innerHTML=`✅ تم إعادة تعيين كلمة المرور<br><b>اسم المستخدم:</b> ${emp.uid}<br><b>كلمة المرور الجديدة:</b> 1234<br><span style="color:${C.gld};font-size:11px">غيّرها بعد الدخول من الإعدادات</span>`;
 };
 
-window.doLogin=function(){
+window.doLogin=async function(){
   const uid=$('inUid').value.trim().toLowerCase();const pass=$('inPass').value;
   $('lErr').style.display='none';
   const emp=getEmpList().find(e=>e.uid===uid);
   if(!emp){$('lErr').textContent='❌ اسم المستخدم غير موجود';$('lErr').style.display='block';return;}
-  const ud=loadU(emp.email);
-  if(pass!==ud.pass){$('lErr').textContent='❌ كلمة المرور غير صحيحة';$('lErr').style.display='block';return;}
+  // Show loading
+  $('lErr').style.display='block';$('lErr').style.color=C.ac;$('lErr').textContent='⏳ جاري تحميل البيانات...';
+  const ud=await loadUAsync(emp.email);
+  if(pass!==ud.pass){$('lErr').style.color=C.dng;$('lErr').textContent='❌ كلمة المرور غير صحيحة';return;}
   S.user={...emp};S.data=ud;
   if(!S.data.dialect) showDialectPicker();
   else if(!S.data.seenOnboard) showOnboarding(0);
@@ -659,6 +708,7 @@ window.resetEmpData=function(email,name){
     d.excusedDays=[];d.goldenHist=[];d.weekendMins=0;
     d.goldenExDone=0;d.goldenStart=null;
     ss('u_'+email,d);
+    fbSet('users',email.replace(/[.@]/g,'_'),d);
   }
   if(S.data.email===email){
     S.data=loadU(email);
@@ -669,14 +719,15 @@ window.resetEmpData=function(email,name){
 };
 
 // Remove employee completely (account + data)
-window.removeEmpFull=function(idx,name){
+window.removeEmpFull=async function(idx,name){
   if(!confirm(`⚠️ حذف ${name} بالكامل؟\n\nيُحذف: الحساب + جميع البيانات\nما يرجع!`))return;
   const emps=getEmpList();
   if(idx>=0&&idx<emps.length){
     const email=emps[idx].email;
     localStorage.removeItem('u_'+email);
+    await fbDel('users',email.replace(/[.@]/g,'_'));
     emps.splice(idx,1);
-    setEmps(emps);
+    await setEmps(emps);
   }
   const msg=$('resetAllMsg');
   if(msg){msg.style.display='block';msg.style.color=C.ac;msg.textContent=`✅ تم حذف ${name} بالكامل`;}
@@ -684,19 +735,20 @@ window.removeEmpFull=function(idx,name){
 };
 
 // Reset ALL employees data
-window.resetAllDataConfirm=function(){
+window.resetAllDataConfirm=async function(){
   if(!confirm('⚠️ مسح بيانات جميع الموظفين؟\n\nالحسابات تبقى — بس السجلات والنقاط تُمسح.'))return;
   if(!confirm('🔴 تأكيد نهائي؟'))return;
   const emps=getEmpList();
-  emps.forEach(e=>{
+  for(const e of emps){
     const d=gs('u_'+e.email);
     if(d){
       d.hist=[];d.todayEx={};d.todayD=null;d.streak=0;d.best=0;d.level=1;
       d.points=0;d.lastA=null;d.firstTime=true;
       d.excusedDays=[];d.goldenHist=[];d.weekendMins=0;
       ss('u_'+e.email,d);
+      await fbSet('users',e.email.replace(/[.@]/g,'_'),d);
     }
-  });
+  }
   S.data=loadU(S.data.email);
   localStorage.removeItem('excuse_log');
   const msg=$('resetAllMsg');
@@ -1512,7 +1564,17 @@ function rTeam(){const emps=getEmpList().filter(e=>e.dept===S.user.dept);let row
   $('ct').innerHTML=`<div class="card fi"><div style="font-family:'Readex Pro';font-size:17px;font-weight:600;margin-bottom:16px">👥 فريق ${dn(S.user.dept)}</div><div style="overflow-x:auto"><table style="width:100%;border-collapse:separate;border-spacing:0 5px"><thead><tr>${['الموظف','المستوى','اليوم','الالتزام','المعدل','متتالية','التقييم'].map(h=>`<th style="text-align:right;padding:9px 12px;font-size:11px;color:${C.dim};font-weight:500;border-bottom:1px solid ${C.gb}">${h}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div></div>`;}
 
 // ============ ADMIN ============
-function rAdmin(){const emps=getEmpList();let allD=emps.map(emp=>{const d=gs('u_'+emp.email);const hist=d?.hist||[];const avg=hist.length?Math.round(hist.reduce((a,b)=>a+b.score,0)/hist.length):0;const ad=new Set(hist.map(h=>new Date(h.date).toDateString())).size;const cm=Math.min(Math.round((ad/30)*100),100);const td_=d?.todayD===td()?Object.keys(d.todayEx||{}).length:0;
+async function rAdmin(){
+  // Load all employee data from Firebase
+  $('ct').innerHTML='<div class="fi" style="text-align:center;padding:40px"><div style="font-size:30px;margin-bottom:10px">⏳</div><div style="color:'+C.dim+'">جاري تحميل بيانات الموظفين...</div></div>';
+  const emps=getEmpList();
+  // Fetch all users from Firestore
+  try{
+    const snap=await db.collection('users').get();
+    snap.forEach(doc=>{ss('u_'+doc.data().email,doc.data());});
+  }catch(e){console.warn('FB bulk read:',e);}
+  
+  let allD=emps.map(emp=>{const d=gs('u_'+emp.email);const hist=d?.hist||[];const avg=hist.length?Math.round(hist.reduce((a,b)=>a+b.score,0)/hist.length):0;const ad=new Set(hist.map(h=>new Date(h.date).toDateString())).size;const cm=Math.min(Math.round((ad/30)*100),100);const td_=d?.todayD===td()?Object.keys(d.todayEx||{}).length:0;
     let imp=0;if(hist.length>=4){const m=Math.floor(hist.length/2);imp=Math.round(hist.slice(m).reduce((a,b)=>a+b.score,0)/(hist.length-m)-hist.slice(0,m).reduce((a,b)=>a+b.score,0)/m);}
     return{...emp,level:d?.level||0,streak:d?.streak||0,avg,cm,td:td_,imp,points:d?.points||0};});
   const tA=allD.filter(d=>d.td>=8).length;const aC=Math.round(allD.reduce((a,b)=>a+b.cm,0)/allD.length);
@@ -1582,23 +1644,27 @@ function rAdmin(){const emps=getEmpList();let allD=emps.map(emp=>{const d=gs('u_
 
 window.showAddEmp=function(){$('addEmpForm').style.display='block';$('addEmpForm').scrollIntoView({behavior:'smooth'});};
 
-window.addEmp=function(){
+window.addEmp=async function(){
   const name=$('nName').value.trim();const uid=$('nUid').value.trim().toLowerCase();const email=$('nEmail').value.trim().toLowerCase();const dept=$('nDept').value;const role=$('nRole').value;const sup=$('nSup').value;
   const msg=$('addMsg');msg.style.display='block';
   if(!name||!uid||!email){msg.style.color=C.dng;msg.textContent='❌ جميع الحقول مطلوبة';return;}
   const emps=getEmpList();
   if(emps.find(e=>e.uid===uid)){msg.style.color=C.dng;msg.textContent='❌ المعرّف مستخدم من قبل';return;}
   if(emps.find(e=>e.email===email)){msg.style.color=C.dng;msg.textContent='❌ الإيميل مستخدم من قبل';return;}
-  emps.push({name,uid,email,dept,role,sup});setEmps(emps);
+  emps.push({name,uid,email,dept,role,sup});await setEmps(emps);
+  // Create user data in Firebase
+  const ud=loadU(email);ud.pass='1234';saveU(ud);
   msg.style.color=C.ac;msg.textContent=`✅ تم إضافة ${name} (${uid}) — كلمة المرور: 1234`;
   $('nName').value='';$('nUid').value='';$('nEmail').value='';
   setTimeout(()=>rAdmin(),1500);
 };
 
-window.delEmp=function(idx){
+window.delEmp=async function(idx){
   const emps=getEmpList();const emp=emps[idx];
   if(!confirm(`حذف ${emp.name}؟`))return;
-  emps.splice(idx,1);setEmps(emps);rAdmin();
+  // Delete from Firebase too
+  await fbDel('users',emp.email.replace(/[.@]/g,'_'));
+  emps.splice(idx,1);await setEmps(emps);rAdmin();
 };
 
 window.grantExcuse=function(){
@@ -1819,7 +1885,7 @@ function processImportRows(rows){
     <div style="overflow-x:auto;max-height:300px;overflow-y:auto"><table style="width:100%;border-collapse:collapse"><thead><tr>${['#','الاسم','English','uid','الإيميل','القسم','الدور','الجنس','البلد'].map(h=>`<th style="text-align:right;padding:6px 8px;font-size:10px;color:${C.dim};border-bottom:1px solid ${C.gb}">${h}</th>`).join('')}</tr></thead><tbody>${prevRows}</tbody></table></div>`;
 }
 
-window.confirmImport=function(){
+window.confirmImport=async function(){
   if(!S_importData||!S_importData.length)return;
   const msg=$('impMsg');msg.style.display='block';
   
@@ -1857,7 +1923,7 @@ window.confirmImport=function(){
     }
   });
   
-  setEmps(emps);
+  await setEmps(emps);
   
   msg.style.color=C.ac;
   msg.innerHTML=`✅ تم الاستيراد!<br>➕ جدد: <b>${added}</b> | 🔄 محدّثين: <b>${updated}</b>${skipped?` | ⏭️ تخطي: <b>${skipped}</b>`:''}`;
@@ -1868,7 +1934,13 @@ window.confirmImport=function(){
 };
 
 // ============ START ============
-showLogin();
+(async function(){
+  // Show loading
+  R().innerHTML='<div style="display:flex;min-height:100vh;align-items:center;justify-content:center"><div style="text-align:center"><div style="font-size:40px;margin-bottom:12px">🧠</div><div style="font-family:Readex Pro;font-size:18px;font-weight:700;margin-bottom:8px">منصة التدريب الذهني</div><div style="color:#6B7A90;font-size:13px">جاري التحميل...</div></div></div>';
+  // Load employee list from Firebase
+  try{await getEmpsAsync();}catch(e){console.warn('Init emps:',e);}
+  showLogin();
+})();
 </script>
 </body>
 </html>
