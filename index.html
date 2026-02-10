@@ -337,6 +337,16 @@ let EX={};
 function td(){return new Date().toDateString()}
 function dn(id){return DEPTS.find(d=>d.id===id)?.n||''}
 
+// Seeded random — each employee gets different questions daily
+function seedRand(seed){
+  let h=0;for(let i=0;i<seed.length;i++){h=((h<<5)-h)+seed.charCodeAt(i);h|=0;}
+  return function(){h^=h<<13;h^=h>>17;h^=h<<5;return(h>>>0)/4294967296;};
+}
+function empSeed(){return(S.user?.email||'x')+td();}
+function empRand(){if(!EX._rng)EX._rng=seedRand(empSeed());return EX._rng();}
+// Shuffle array with employee-specific seed
+function empShuf(arr){const a=[...arr];const rng=seedRand(empSeed()+(EX.step||0));for(let i=a.length-1;i>0;i--){const j=Math.floor(rng()*((i+1)));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
 // ============ POINTS & RANKS SYSTEM ============
 const RANKS=[
   {id:'bronze',name:'🥉 برونزي',min:0,color:'#CD7F32'},
@@ -1057,6 +1067,7 @@ window.startEx=function(type){
 };
 
 function launchEx(type){
+  EX._rng=null; // Reset RNG for fresh seed per exercise
   const ex=EXT.find(e=>e.id===type);
   $('exT').textContent=ex.ic+' '+ex.n;
   EX={start:Date.now(),correct:0,total:0,step:0};
@@ -1122,24 +1133,24 @@ function finishEx(){
 // Per-skill level based on recent performance (last 5 attempts)
 function getSkillLv(type){
   const h=S.data.hist.filter(x=>x.type===type).slice(-5);
-  if(h.length===0)return 1;
+  if(h.length===0)return 2; // Start at level 2 (not 1 = children)
   const avg=Math.round(h.reduce((a,b)=>a+b.score,0)/h.length);
-  if(avg>=90&&h.length>=5)return 5;
-  if(avg>=80&&h.length>=4)return 4;
-  if(avg>=65&&h.length>=3)return 3;
-  if(avg>=50&&h.length>=2)return 2;
-  return 1;
+  if(avg>=85&&h.length>=4)return 5;
+  if(avg>=70&&h.length>=3)return 4;
+  if(avg>=55&&h.length>=2)return 3;
+  if(avg>=40)return 2;
+  return 2; // Never go below 2
 }
 
 // --- Memory --- (Start at 8 pairs, grow to 12)
-function exMemory(){const em=['🌟','🌙','🔥','💎','🦁','🌸','🎵','⚡','🌍','🎯','🍀','🔑'];const lv=getSkillLv('memory');const p=[8,9,10,11,12][lv-1];const cols=p<=8?4:p<=10?5:6;const cards=[...em.slice(0,p),...em.slice(0,p)].sort(()=>Math.random()-0.5);EX.total=p;EX.cards=cards;EX.fl=[];EX.mt=new Set();
+function exMemory(){const em=['🌟','🌙','🔥','💎','🦁','🌸','🎵','⚡','🌍','🎯','🍀','🔑'];const lv=getSkillLv('memory');const p=[8,9,10,11,12][lv-1];const cols=p<=8?4:p<=10?5:6;const cards=empShuf([...em.slice(0,p),...em.slice(0,p)]);EX.total=p;EX.cards=cards;EX.fl=[];EX.mt=new Set();
   $('exA').innerHTML=`<div style="font-size:16px;color:${C.dim};text-align:center;margin-bottom:6px">ابحث عن الأزواج المتطابقة</div><div style="font-size:13px;color:${C.ac2};text-align:center;margin-bottom:12px">المستوى ${lv} — ${p} أزواج</div><div style="display:grid;grid-template-columns:repeat(${cols},62px);gap:6px;direction:ltr">${cards.map((_,i)=>`<div class="mc" onclick="mF(${i})" style="width:62px;height:62px;background:rgba(255,255,255,0.04);border:2px solid rgba(255,255,255,0.08);border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:24px;cursor:pointer;transition:all 0.3s">❓</div>`).join('')}</div>`;}
 window.mF=function(i){if(EX.fl.length>=2||EX.mt.has(i)||EX.fl.includes(i))return;const c=document.querySelectorAll('.mc');c[i].textContent=EX.cards[i];c[i].style.background='rgba(0,229,184,0.1)';c[i].style.borderColor=C.ac;EX.fl.push(i);
   if(EX.fl.length===2){const[a,b]=EX.fl;if(EX.cards[a]===EX.cards[b]){EX.mt.add(a);EX.mt.add(b);EX.correct++;c[a].style.background='rgba(0,229,184,0.2)';c[b].style.background='rgba(0,229,184,0.2)';EX.fl=[];$('exP').style.width=(EX.correct/EX.total*100)+'%';if(EX.correct===EX.total)setTimeout(finishEx,400);}
     else setTimeout(()=>{c[a].textContent='❓';c[b].textContent='❓';[a,b].forEach(x=>{c[x].style.background='rgba(255,255,255,0.04)';c[x].style.borderColor='rgba(255,255,255,0.08)';});EX.fl=[];},700);}};
 
 // --- Sequence --- (Start 8 digits/5s, grow digits, shrink time to 3s)
-function exSequence(){const lv=getSkillLv('sequence');const len=[8,9,10,11,12][lv-1];const showMs=[5000,4500,4000,3500,3000][lv-1];const seq=Array.from({length:len},()=>Math.floor(Math.random()*9)+1);EX.total=1;EX.seq=seq;
+function exSequence(){const lv=getSkillLv('sequence');const len=[8,9,10,11,12][lv-1];const showMs=[5000,4500,4000,3500,3000][lv-1];const seq=Array.from({length:len},()=>Math.floor(empRand()*9)+1);EX.total=1;EX.seq=seq;
   const showSec=(showMs/1000).toFixed(1);
   $('exA').innerHTML=`<div style="font-size:16px;color:${C.dim};text-align:center;margin-bottom:6px">احفظ التسلسل</div><div style="font-size:13px;color:${C.ac2};text-align:center;margin-bottom:12px">المستوى ${lv} — ${len} أرقام في ${showSec} ثانية</div><div style="font-family:'Readex Pro';font-size:32px;letter-spacing:10px;text-align:center;direction:ltr">${seq.join('  ')}</div><div style="width:100%;height:4px;background:rgba(255,255,255,0.05);border-radius:2px;margin-top:14px;overflow:hidden"><div id="seqBar" style="height:100%;width:100%;background:${C.gld};border-radius:2px;transition:width ${showMs}ms linear"></div></div>`;
   setTimeout(()=>{if($('seqBar'))$('seqBar').style.width='0%';},50);
@@ -1147,7 +1158,7 @@ function exSequence(){const lv=getSkillLv('sequence');const len=[8,9,10,11,12][l
 window.sChk=function(){const ins=document.querySelectorAll('#sI input');let ok=true;Array.from(ins).forEach((el,i)=>{if(parseInt(el.value)===EX.seq[i]){el.style.borderColor=C.ac;el.style.background='rgba(0,229,184,0.12)';}else{el.style.borderColor=C.dng;el.style.background='rgba(255,118,117,0.12)';ok=false;}});EX.correct=ok?1:0;setTimeout(finishEx,800);};
 
 // --- Schulte ---
-function exSchulte(){const lv=getSkillLv('schulte');const grid=[9,16,25,36,25][lv-1];const cols=[3,4,5,6,5][lv-1];const reverse=lv===5;const nums=Array.from({length:grid},(_,i)=>i+1).sort(()=>Math.random()-0.5);EX.total=grid;EX.correct=0;EX.next=reverse?grid:1;EX.reverse=reverse;
+function exSchulte(){const lv=getSkillLv('schulte');const grid=[16,25,25,36,36][lv-1];const cols=[4,5,5,6,6][lv-1];const reverse=lv>=4;const nums=empShuf(Array.from({length:grid},(_,i)=>i+1));EX.total=grid;EX.correct=0;EX.next=reverse?grid:1;EX.reverse=reverse;
   const sz=grid<=9?70:grid<=16?62:grid<=25?56:48;
   $('exA').innerHTML=`<div style="font-size:16px;color:${C.dim};text-align:center;margin-bottom:6px">${reverse?`اضغط ${grid} إلى 1 بالعكس`:`اضغط 1 إلى ${grid} بالترتيب`}</div><div style="font-size:13px;color:${C.ac2};text-align:center;margin-bottom:10px">المستوى ${lv} — جدول ${cols}×${cols}</div><div style="text-align:center;margin-bottom:8px;color:${C.gld};font-weight:700;font-size:18px">التالي: <span id="sN">${EX.next}</span></div>
   <div style="display:grid;grid-template-columns:repeat(${cols},${sz}px);gap:5px;direction:ltr">${nums.map(n=>`<div class="sc" onclick="scC(${n},this)" style="width:${sz}px;height:${sz}px;background:rgba(255,255,255,0.04);border:2px solid rgba(255,255,255,0.08);border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:'Readex Pro';font-size:${grid<=16?18:15}px;font-weight:600;cursor:pointer;transition:all 0.2s">${n}</div>`).join('')}</div>`;}
@@ -1177,11 +1188,11 @@ window.stA=function(a,el){document.querySelectorAll('.ob').forEach(b=>b.style.po
 // --- Math --- (Mixed ops from start, close answers ±1~3)
 function exMathS(){EX.total=10;EX.correct=0;EX.step=0;mQ();}
 function mQ(){if(EX.step>=10){finishEx();return;}const lv=getSkillLv('math');let a,b,op,ans;
-  const ops=lv>=3?['+','-','×','÷']:['+','-','×'];
-  op=ops[Math.floor(Math.random()*ops.length)];
-  if(op==='÷'){b=Math.floor(Math.random()*(lv*3))+2;a=b*(Math.floor(Math.random()*(lv*4))+2);}
-  else if(op==='×'){a=Math.floor(Math.random()*(lv*5))+2;b=Math.floor(Math.random()*(lv*4))+2;}
-  else{const mx=[25,50,80,120,200][lv-1];a=Math.floor(Math.random()*mx)+3;b=Math.floor(Math.random()*Math.floor(mx*0.6))+2;}
+  const ops=lv>=2?['+','-','×','÷']:['+','-','×'];
+  op=ops[Math.floor(empRand()*ops.length)];
+  if(op==='÷'){b=Math.floor(empRand()*(lv*4))+2;a=b*(Math.floor(empRand()*(lv*5))+2);}
+  else if(op==='×'){a=Math.floor(empRand()*(lv*6))+3;b=Math.floor(empRand()*(lv*5))+2;}
+  else{const mx=[50,80,120,200,350][lv-1];a=Math.floor(empRand()*mx)+10;b=Math.floor(empRand()*Math.floor(mx*0.7))+5;}
   if(op==='-'&&b>a)[a,b]=[b,a];
   ans=op==='+'?a+b:op==='-'?a-b:op==='×'?a*b:Math.round(a/b);EX.mA=ans;
   // Close wrong answers (±1, ±2, ±3)
@@ -1221,11 +1232,11 @@ function genRaven(lv){
   const shapes=['circle','rect','triangle','diamond','cross'];
   
   // Pick rule type based on level — start with more variety
-  const ruleTypes=lv<=1?['countProgression','sizeProgression']:lv<=2?['countProgression','sizeProgression','rotation']:lv<=3?['sizeProgression','rotation','distribute3']:lv<=4?['rotation','distribute3','addSubtract']:['distribute3','addSubtract','rotation'];
+  const ruleTypes=lv<=1?['sizeProgression','rotation','countProgression']:lv<=2?['rotation','distribute3','sizeProgression']:lv<=3?['distribute3','rotation','addSubtract']:lv<=4?['addSubtract','distribute3','rotation']:['addSubtract','distribute3','rotation'];
   const rule=ruleTypes[Math.floor(Math.random()*ruleTypes.length)];
   
   const matrix=[];let answer;
-  const sh=shuf(shapes);const co=shuf(colors);
+  const sh=empShuf(shapes);const co=empShuf(colors);
   
   if(rule==='countProgression'){
     // Count increases across rows: 1,2,3 or 1,2,3 / 1,2,3 / 1,2,3
@@ -1574,7 +1585,12 @@ async function rAdmin(){
     snap.forEach(doc=>{ss('u_'+doc.data().email,doc.data());});
   }catch(e){console.warn('FB bulk read:',e);}
   
-  let allD=emps.map(emp=>{const d=gs('u_'+emp.email);const hist=d?.hist||[];const avg=hist.length?Math.round(hist.reduce((a,b)=>a+b.score,0)/hist.length):0;const ad=new Set(hist.map(h=>new Date(h.date).toDateString())).size;const cm=Math.min(Math.round((ad/30)*100),100);const td_=d?.todayD===td()?Object.keys(d.todayEx||{}).length:0;
+  let allD=emps.map(emp=>{const d=gs('u_'+emp.email);const hist=d?.hist||[];const avg=hist.length?Math.round(hist.reduce((a,b)=>a+b.score,0)/hist.length):0;const ad=new Set(hist.map(h=>new Date(h.date).toDateString())).size;
+    // Calculate commitment from first exercise date (not fixed 30 days)
+    let totalDays=1;
+    if(hist.length>0){const firstDate=new Date(hist[0].date);const now=new Date();totalDays=Math.max(1,Math.floor((now-firstDate)/(864e5))+1);}
+    const cm=hist.length>0?Math.min(Math.round((ad/totalDays)*100),100):0;
+    const td_=d?.todayD===td()?Object.keys(d.todayEx||{}).length:0;
     let imp=0;if(hist.length>=4){const m=Math.floor(hist.length/2);imp=Math.round(hist.slice(m).reduce((a,b)=>a+b.score,0)/(hist.length-m)-hist.slice(0,m).reduce((a,b)=>a+b.score,0)/m);}
     return{...emp,level:d?.level||0,streak:d?.streak||0,avg,cm,td:td_,imp,points:d?.points||0};});
   const tA=allD.filter(d=>d.td>=8).length;const aC=Math.round(allD.reduce((a,b)=>a+b.cm,0)/allD.length);
