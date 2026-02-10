@@ -269,12 +269,12 @@ const SHORTCUTS = [
   {keys:['Ctrl','A'],desc:'تحديد الكل',cat:'ويندوز'},
   {keys:['Ctrl','S'],desc:'حفظ',cat:'ويندوز'},
   {keys:['Ctrl','F'],desc:'بحث',cat:'ويندوز'},
-  {keys:['Alt','Tab'],desc:'التبديل بين النوافذ',cat:'ويندوز'},
-  {keys:['Alt','F4'],desc:'إغلاق النافذة',cat:'ويندوز'},
-  {keys:['Win','D'],desc:'إظهار سطح المكتب',cat:'ويندوز'},
-  {keys:['Win','L'],desc:'قفل الجهاز',cat:'ويندوز'},
-  {keys:['Ctrl','Shift','Esc'],desc:'مدير المهام',cat:'ويندوز'},
-  {keys:['Win','E'],desc:'فتح مستكشف الملفات',cat:'ويندوز'},
+  {keys:['Alt','Tab'],desc:'التبديل بين النوافذ',cat:'ويندوز',noPress:true},
+  {keys:['Alt','F4'],desc:'إغلاق النافذة',cat:'ويندوز',noPress:true},
+  {keys:['Win','D'],desc:'إظهار سطح المكتب',cat:'ويندوز',noPress:true},
+  {keys:['Win','L'],desc:'قفل الجهاز',cat:'ويندوز',noPress:true},
+  {keys:['Ctrl','Shift','Esc'],desc:'مدير المهام',cat:'ويندوز',noPress:true},
+  {keys:['Win','E'],desc:'فتح مستكشف الملفات',cat:'ويندوز',noPress:true},
   {keys:['PrtSc'],desc:'لقطة شاشة',cat:'ويندوز'},
   // Excel
   {keys:['Ctrl','Home'],desc:'الذهاب لأول خلية',cat:'Excel'},
@@ -290,13 +290,13 @@ const SHORTCUTS = [
   {keys:['Ctrl','1'],desc:'تنسيق الخلايا',cat:'Excel'},
   {keys:['Ctrl','B'],desc:'خط عريض Bold',cat:'Excel'},
   // المتصفح
-  {keys:['Ctrl','T'],desc:'فتح تبويب جديد',cat:'متصفح'},
-  {keys:['Ctrl','W'],desc:'إغلاق التبويب',cat:'متصفح'},
-  {keys:['Ctrl','Shift','T'],desc:'إعادة فتح تبويب مغلق',cat:'متصفح'},
+  {keys:['Ctrl','T'],desc:'فتح تبويب جديد',cat:'متصفح',noPress:true},
+  {keys:['Ctrl','W'],desc:'إغلاق التبويب',cat:'متصفح',noPress:true},
+  {keys:['Ctrl','Shift','T'],desc:'إعادة فتح تبويب مغلق',cat:'متصفح',noPress:true},
   {keys:['Ctrl','L'],desc:'التركيز على شريط العنوان',cat:'متصفح'},
-  {keys:['Ctrl','Tab'],desc:'التبويب التالي',cat:'متصفح'},
-  {keys:['Ctrl','Shift','Tab'],desc:'التبويب السابق',cat:'متصفح'},
-  {keys:['F5'],desc:'تحديث الصفحة',cat:'متصفح'},
+  {keys:['Ctrl','Tab'],desc:'التبويب التالي',cat:'متصفح',noPress:true},
+  {keys:['Ctrl','Shift','Tab'],desc:'التبويب السابق',cat:'متصفح',noPress:true},
+  {keys:['F5'],desc:'تحديث الصفحة',cat:'متصفح',noPress:true},
   {keys:['Ctrl','+'],desc:'تكبير',cat:'متصفح'},
   {keys:['Ctrl','-'],desc:'تصغير',cat:'متصفح'},
   {keys:['Ctrl','0'],desc:'إعادة الحجم الطبيعي',cat:'متصفح'},
@@ -651,7 +651,17 @@ function rSettings(){
     <div id="dlMsg" style="font-size:12px;margin-top:8px;color:${C.ac};display:none"></div>
   </div>
   <div class="card fi" style="max-width:500px;margin-top:16px">
-    <div style="font-family:'Readex Pro';font-size:18px;font-weight:600;margin-bottom:10px">📖 عن المنصة</div>
+    <div style="font-family:'Readex Pro';font-size:18px;font-weight:600;margin-bottom:14px">✏️ تعديل بياناتي</div>
+    <div style="margin-bottom:12px"><label style="font-size:12px;color:${C.dim};display:block;margin-bottom:5px">الاسم بالعربي</label><input class="inp" id="edName" value="${S.user.name||''}"></div>
+    <div style="margin-bottom:12px"><label style="font-size:12px;color:${C.dim};display:block;margin-bottom:5px">البريد الإلكتروني</label><input class="inp" id="edEmail" value="${S.user.email||''}" style="direction:ltr;text-align:left"></div>
+    <div style="margin-bottom:12px"><label style="font-size:12px;color:${C.dim};display:block;margin-bottom:5px">الجوال</label><input class="inp" id="edPhone" value="${S.user.phone||''}" style="direction:ltr;text-align:left" placeholder="05xxxxxxxx"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div><label style="font-size:12px;color:${C.dim};display:block;margin-bottom:5px">الجنس</label><select class="inp" id="edGender"><option value="ذكر" ${S.user.gender==='أنثى'?'':'selected'}>ذكر</option><option value="أنثى" ${S.user.gender==='أنثى'?'selected':''}>أنثى</option></select></div>
+      <div><label style="font-size:12px;color:${C.dim};display:block;margin-bottom:5px">العمر</label><input class="inp" type="number" id="edAge" value="${S.user.age||''}" placeholder="25"></div>
+    </div>
+    <div id="edMsg" style="font-size:13px;margin-bottom:10px;display:none"></div>
+    <button class="btn" style="max-width:200px" onclick="saveProfile()">💾 حفظ التعديلات</button>
+  </div>
     <p style="font-size:13px;color:${C.dim};margin-bottom:12px">شوف مرة ثانية الشرح التعريفي عن المنصة وفلسفتها وليش هي مهمة لك.</p>
     <button class="btn" style="max-width:220px;font-size:13px;padding:10px" onclick="showOnboarding(0)">🎬 عرض الشرح التعريفي</button>
   </div>
@@ -697,6 +707,40 @@ window.changePass=function(){
   S.data.pass=nw;saveU(S.data);
   msg.style.color=C.ac;msg.textContent='✅ تم تغيير كلمة المرور بنجاح!';
   $('oldPass').value='';$('newPass').value='';$('newPass2').value='';
+};
+
+window.saveProfile=async function(){
+  const name=$('edName').value.trim();const email=$('edEmail').value.trim().toLowerCase();
+  const phone=$('edPhone').value.trim();const gender=$('edGender').value;const age=$('edAge').value;
+  const msg=$('edMsg');msg.style.display='block';
+  if(!name){msg.style.color=C.dng;msg.textContent='❌ الاسم مطلوب';return;}
+  
+  const emps=getEmpList();const idx=emps.findIndex(e=>e.uid===S.user.uid);
+  if(idx<0){msg.style.color=C.dng;msg.textContent='❌ خطأ في البيانات';return;}
+  
+  // Check if email changed and is unique
+  const oldEmail=S.user.email;
+  if(email!==oldEmail){
+    if(emps.find(e=>e.email===email&&e.uid!==S.user.uid)){msg.style.color=C.dng;msg.textContent='❌ البريد مستخدم من موظف آخر';return;}
+    // Migrate user data to new email
+    const d=gs('u_'+oldEmail);
+    if(d){d.email=email;ss('u_'+email,d);localStorage.removeItem('u_'+oldEmail);
+      await fbDel('users',oldEmail.replace(/[.@]/g,'_'));
+      await fbSet('users',email.replace(/[.@]/g,'_'),d);
+      S.data=d;
+    }
+  }
+  
+  // Update employee record
+  emps[idx].name=name;emps[idx].email=email;
+  if(phone)emps[idx].phone=phone;
+  if(gender)emps[idx].gender=gender;
+  if(age)emps[idx].age=parseInt(age);
+  await setEmps(emps);
+  
+  // Update session
+  S.user={...emps[idx]};
+  msg.style.color=C.ac;msg.textContent='✅ تم حفظ التعديلات!';
 };
 
 window.changeDL=function(dl){
@@ -1186,8 +1230,43 @@ function stQ(){if(EX.step>=EX.total){finishEx();return;}const c=EX.cl;
 window.stA=function(a,el){document.querySelectorAll('.ob').forEach(b=>b.style.pointerEvents='none');if(a===EX.stA){el.style.borderColor=C.ac;el.style.background='rgba(0,229,184,0.12)';EX.correct++;}else{el.style.borderColor=C.dng;el.style.background='rgba(255,118,117,0.12)';document.querySelectorAll('.ob').forEach(b=>{if(b.textContent===EX.stA){b.style.borderColor=C.ac;b.style.background='rgba(0,229,184,0.12)';}});}EX.step++;setTimeout(stQ,700);};
 
 // --- Math --- (Mixed ops from start, close answers ±1~3)
-function exMathS(){EX.total=10;EX.correct=0;EX.step=0;mQ();}
-function mQ(){if(EX.step>=10){finishEx();return;}const lv=getSkillLv('math');let a,b,op,ans;
+function exMathS(){EX.total=10;EX.correct=0;EX.step=0;EX.fracCount=0;mQ();}
+function mQ(){if(EX.step>=10){finishEx();return;}const lv=getSkillLv('math');let a,b,op,ans,display;
+  
+  // Add fraction questions at level 3+ (2-3 per exercise)
+  const doFraction=lv>=3&&EX.fracCount<3&&empRand()>0.5;
+  
+  if(doFraction){
+    EX.fracCount++;
+    const fracOps=['+','-','×'];
+    op=fracOps[Math.floor(empRand()*fracOps.length)];
+    // Simple fractions with common denominators
+    const denoms=[2,3,4,5,6,8];
+    const d1=denoms[Math.floor(empRand()*denoms.length)];
+    const n1=Math.floor(empRand()*(d1-1))+1;
+    const d2=lv>=4?denoms[Math.floor(empRand()*denoms.length)]:d1;
+    const n2=Math.floor(empRand()*(d2-1))+1;
+    
+    if(op==='+'){ans=Math.round(((n1/d1)+(n2/d2))*100)/100;}
+    else if(op==='-'){
+      if(n1/d1<n2/d2){ans=Math.round(((n2/d2)-(n1/d1))*100)/100;display=`<sup>${n2}</sup>⁄<sub>${d2}</sub> − <sup>${n1}</sup>⁄<sub>${d1}</sub>`;}
+      else{ans=Math.round(((n1/d1)-(n2/d2))*100)/100;}
+    }
+    else{ans=Math.round(((n1/d1)*(n2/d2))*100)/100;}
+    
+    if(!display)display=`<sup>${n1}</sup>⁄<sub>${d1}</sub> ${op==='×'?'×':op} <sup>${n2}</sup>⁄<sub>${d2}</sub>`;
+    EX.mA=ans;
+    
+    const opts=new Set([ans]);
+    const offsets=[-0.5,-0.25,-0.1,0.1,0.25,0.5].sort(()=>empRand()-0.5);
+    for(const off of offsets){if(opts.size>=4)break;const w=Math.round((ans+off)*100)/100;if(w>=0&&w!==ans)opts.add(w);}
+    while(opts.size<4){opts.add(Math.round((ans+empRand()*2)*100)/100);}
+    
+    $('exA').innerHTML=`<div style="font-size:16px;color:${C.dim};text-align:center">(${EX.step+1}/10) <span style="font-size:12px;color:${C.ac2}">مستوى ${lv}</span> <span style="font-size:11px;color:${C.gld}">كسور</span></div><div style="font-family:'Readex Pro';font-size:36px;font-weight:600;text-align:center;margin:14px 0 22px;direction:ltr">${display} = ?</div>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;max-width:440px;width:100%">${[...opts].sort(()=>empRand()-0.5).map(n=>`<div class="ob" onclick="mA(${n},this)" style="padding:18px;background:rgba(255,255,255,0.03);border:2px solid rgba(255,255,255,0.06);border-radius:12px;text-align:center;font-size:22px;font-weight:600;cursor:pointer;transition:all 0.3s">${n}</div>`).join('')}</div>`;$('exP').style.width=(EX.step/10*100)+'%';
+    return;
+  }
+  
   const ops=lv>=2?['+','-','×','÷']:['+','-','×'];
   op=ops[Math.floor(empRand()*ops.length)];
   if(op==='÷'){b=Math.floor(empRand()*(lv*4))+2;a=b*(Math.floor(empRand()*(lv*5))+2);}
@@ -1205,7 +1284,7 @@ function mQ(){if(EX.step>=10){finishEx();return;}const lv=getSkillLv('math');let
 window.mA=function(a,el){document.querySelectorAll('.ob').forEach(b=>b.style.pointerEvents='none');if(a===EX.mA){el.style.borderColor=C.ac;el.style.background='rgba(0,229,184,0.12)';EX.correct++;}else{el.style.borderColor=C.dng;el.style.background='rgba(255,118,117,0.12)';document.querySelectorAll('.ob').forEach(b=>{if(parseInt(b.textContent)===EX.mA){b.style.borderColor=C.ac;b.style.background='rgba(0,229,184,0.12)';}});}EX.step++;setTimeout(mQ,500);};
 
 // --- Raven --- (Professional Progressive Matrices)
-function exRaven(){const lv=getSkillLv('raven');EX.total=[5,6,7,8,8][lv-1];EX.correct=0;EX.step=0;rQ();}
+function exRaven(){const lv=getSkillLv('raven');EX.total=[6,7,8,9,10][lv-1];EX.correct=0;EX.step=0;rQ();}
 
 // SVG drawing engine for shapes
 function rvSVG(cell,sz){
@@ -1435,8 +1514,23 @@ function showSCQ(){
   const sc=EX.pool[EX.step];
   const catColors={'ويندوز':'rgba(0,229,184,0.15);color:#00E5B8','Excel':'rgba(108,92,231,0.15);color:#a29bfe','المتصفح':'rgba(253,203,110,0.15);color:#FDCB6E'};
   const catStyle=catColors[sc.cat]||catColors['ويندوز'];
-  const keyStr=sc.keys.join(' + ');
   
+  $('exP').style.width=(EX.step/8*100)+'%';
+  
+  if(sc.noPress){
+    // Multiple choice for dangerous shortcuts
+    const correct=sc.keys.join(' + ');
+    const others=SHORTCUTS.filter(s=>s!==sc).sort(()=>Math.random()-0.5).slice(0,3).map(s=>s.keys.join(' + '));
+    const opts=[correct,...others].sort(()=>Math.random()-0.5);
+    $('exA').innerHTML=`<div style="font-size:16px;color:${C.dim};text-align:center;margin-bottom:8px">ما هو الاختصار؟ (${EX.step+1}/8)</div>
+      <div style="text-align:center;margin-bottom:8px"><span style="font-size:13px;padding:5px 14px;border-radius:6px;background:${catStyle};font-weight:600">🖥️ ${sc.cat}</span></div>
+      <div style="font-family:'Readex Pro';font-size:24px;font-weight:600;text-align:center;margin:16px 0">${sc.desc}</div>
+      <div style="text-align:center;margin-bottom:14px;font-size:14px;color:${C.gld}">⚠️ اختر الإجابة (هذا الاختصار يؤثر على المتصفح)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:500px;direction:ltr">${opts.map(o=>`<div class="ob" onclick="scMC('${o.replace(/'/g,"\\'")}',this,'${correct.replace(/'/g,"\\'")}','${sc.desc}')" style="padding:16px;background:rgba(255,255,255,0.03);border:2px solid rgba(255,255,255,0.06);border-radius:12px;text-align:center;font-size:15px;font-weight:600;cursor:pointer;transition:all 0.3s">${o}</div>`).join('')}</div>`;
+    return;
+  }
+  
+  // Normal keypress mode
   $('exA').innerHTML=`<div style="font-size:16px;color:${C.dim};text-align:center;margin-bottom:8px">ما هو الاختصار؟ (${EX.step+1}/8)</div>
     <div style="text-align:center;margin-bottom:8px"><span style="font-size:13px;padding:5px 14px;border-radius:6px;background:${catStyle};font-weight:600">🖥️ ${sc.cat}</span></div>
     <div style="font-family:'Readex Pro';font-size:24px;font-weight:600;text-align:center;margin:16px 0">${sc.desc}</div>
@@ -1483,6 +1577,17 @@ function showSCQ(){
 }
 
 function shuf(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}return b;}
+
+window.scMC=function(ans,el,correct,desc){
+  document.querySelectorAll('.ob').forEach(b=>b.style.pointerEvents='none');
+  if(ans===correct){
+    EX.correct++;el.style.borderColor=C.ac;el.style.background='rgba(0,229,184,0.12)';
+  }else{
+    el.style.borderColor=C.dng;el.style.background='rgba(255,118,117,0.12)';
+    document.querySelectorAll('.ob').forEach(b=>{if(b.textContent===correct){b.style.borderColor=C.ac;b.style.background='rgba(0,229,184,0.12)';}});
+  }
+  EX.step++;setTimeout(showSCQ,1500);
+};
 
 // ============ PROGRESS + GROWTH ============
 function rProgress(){
