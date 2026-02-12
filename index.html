@@ -1,2188 +1,0 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>منصة التدريب الذهني | سريع وموثوق</title>
-<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&family=Readex+Pro:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-</head>
-<body style="margin:0;font-family:'Tajawal',sans-serif;background:#0A0F1C;color:#E8ECF1;min-height:100vh">
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-:root{--ac:#00E5B8;--ac2:#6C5CE7;--gld:#FDCB6E;--dng:#FF7675;--dim:#6B7A90;--cb:rgba(26,35,64,0.7);--gb:rgba(255,255,255,0.07)}
-body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 0%,rgba(0,229,184,0.06),transparent 50%),radial-gradient(ellipse at 80% 100%,rgba(108,92,231,0.06),transparent 50%);z-index:0;pointer-events:none}
-#R{position:relative;z-index:1}
-::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:3px}
-.inp{width:100%;padding:13px 16px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:10px;color:#E8ECF1;font-family:'Tajawal';font-size:16px;outline:none;transition:all 0.3s}
-.inp:focus{border-color:var(--ac);box-shadow:0 0 12px rgba(0,229,184,0.25)}
-.inp[type=password]{letter-spacing:3px}
-.btn{padding:14px 28px;background:linear-gradient(135deg,var(--ac),#00B894);border:none;border-radius:12px;color:#0A0F1C;font-family:'Tajawal';font-size:17px;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(0,229,184,0.25);transition:all 0.3s;width:100%}
-.btn:hover{transform:translateY(-2px)}
-.btn2{padding:8px 16px;background:rgba(108,92,231,0.15);color:var(--ac2);border:1px solid rgba(108,92,231,0.2);border-radius:8px;font-family:'Tajawal';font-size:12px;cursor:pointer;transition:all 0.3s}
-.card{background:var(--cb);border:1px solid var(--gb);border-radius:20px;padding:26px;margin-bottom:20px}
-.hdr{position:sticky;top:0;z-index:100;background:rgba(10,15,28,0.85);backdrop-filter:blur(30px);border-bottom:1px solid var(--gb);padding:16px 32px;display:flex;justify-content:space-between;align-items:center}
-@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-.fi{animation:fadeIn 0.4s ease}
-/* Keyboard trainer */
-.kb-area{font-family:'Readex Pro',monospace;font-size:18px;line-height:2;direction:ltr;text-align:left;background:rgba(255,255,255,0.03);border-radius:12px;padding:20px;min-height:80px;position:relative;letter-spacing:1px}
-.kb-correct{color:var(--ac)} .kb-wrong{color:var(--dng);text-decoration:underline} .kb-cursor{color:var(--gld);border-bottom:2px solid var(--gld)} .kb-dim{color:rgba(255,255,255,0.25)}
-.kb-input{position:absolute;opacity:0;width:100%;height:100%;top:0;left:0;cursor:text}
-.shortcut-key{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:6px;font-family:'Readex Pro';font-size:13px;font-weight:600;min-width:30px;justify-content:center}
-.shortcut-plus{margin:0 4px;color:var(--dim);font-size:12px}
-</style>
-<div id="R"></div>
-<script>
-const $=id=>document.getElementById(id);
-const R=()=>$('R');
-const C={ac:'#00E5B8',ac2:'#6C5CE7',gld:'#FDCB6E',dng:'#FF7675',dim:'#6B7A90',cb:'rgba(26,35,64,0.7)',gb:'rgba(255,255,255,0.07)'};
-
-// ============ FIREBASE INIT ============
-const firebaseConfig = {
-  apiKey: "AIzaSyBF4bf4bfSoQ1UYyyfoXfVVGWIJjZq8f8w",
-  authDomain: "brain-training-45add.firebaseapp.com",
-  projectId: "brain-training-45add",
-  storageBucket: "brain-training-45add.firebasestorage.app",
-  messagingSenderId: "1082619560355",
-  appId: "1:1082619560355:web:1767334b81b5cd0ff35a16"
-};
-firebase.initializeApp(firebaseConfig);
-const db=firebase.firestore();
-
-// ============ DATA LAYER (Firebase + localStorage cache) ============
-// Local cache helpers
-function gs(k){try{return JSON.parse(localStorage.getItem('bt4_'+k))}catch{return null}}
-function ss(k,v){localStorage.setItem('bt4_'+k,JSON.stringify(v))}
-
-// Firebase helpers
-async function fbGet(collection,docId){
-  try{
-    const doc=await db.collection(collection).doc(docId).get();
-    return doc.exists?doc.data():null;
-  }catch(e){console.warn('FB read error:',e);return null;}
-}
-async function fbSet(collection,docId,data){
-  try{await db.collection(collection).doc(docId).set(data,{merge:true});}
-  catch(e){console.warn('FB write error:',e);}
-}
-async function fbDel(collection,docId){
-  try{await db.collection(collection).doc(docId).delete();}
-  catch(e){console.warn('FB delete error:',e);}
-}
-
-// Employee list — Firebase-backed
-async function getEmpsAsync(){
-  const snap=await db.collection('employees').doc('list').get();
-  if(snap.exists&&snap.data().emps){
-    const emps=snap.data().emps;
-    ss('emp_list',emps); // cache locally
-    return emps;
-  }
-  // First time — seed with defaults
-  ss('emp_list',DEFAULT_EMPS);
-  await fbSet('employees','list',{emps:DEFAULT_EMPS});
-  return [...DEFAULT_EMPS];
-}
-function getEmps(){return gs('emp_list')||[...DEFAULT_EMPS]}
-function getEmpList(){return getEmps()}
-async function setEmps(list){
-  ss('emp_list',list);
-  await fbSet('employees','list',{emps:list});
-}
-
-// User data — Firebase-backed
-function loadU(email){
-  let d=gs('u_'+email)||{email,level:1,streak:0,best:0,lastA:null,hist:[],todayEx:{},todayD:null,pass:'1234',firstTime:true,dialect:null,typingProgress:{ar:1,en:1},points:0,excusedDays:[],goldenHist:[],weekendMins:0};
-  // Ensure new fields exist for old users
-  if(d.points===undefined)d.points=0;
-  if(!d.excusedDays)d.excusedDays=[];
-  if(!d.goldenHist)d.goldenHist=[];
-  if(d.weekendMins===undefined)d.weekendMins=0;
-  
-  if(d.todayD!==td()){
-    const y=new Date(Date.now()-864e5).toDateString();
-    const yesterdayPts=calcDailyPoints(d);
-    if(yesterdayPts>0)d.points+=yesterdayPts;
-    const penalty=calcMissedPenalty(d);
-    if(penalty<0)d.points=Math.max(0,d.points+penalty);
-    
-    if(d.lastA===y){d.streak++;d.best=Math.max(d.best,d.streak)}else if(d.lastA!==td())d.streak=0;
-    d.todayEx={};d.todayD=td();
-  }return d;
-}
-
-async function loadUAsync(email){
-  // Try Firebase first
-  const fbData=await fbGet('users',email.replace(/[.@]/g,'_'));
-  if(fbData){
-    ss('u_'+email,fbData); // cache locally
-  }
-  return loadU(email);
-}
-
-function saveU(d){
-  d.lastA=td();const t=d.hist.length;const a=t?d.hist.reduce((x,y)=>x+y.score,0)/t:0;
-  d.level=t>=100&&a>=75?5:t>=60&&a>=65?4:t>=35&&a>=55?3:t>=15?2:1;
-  ss('u_'+d.email,d);
-  // Async save to Firebase (non-blocking)
-  fbSet('users',d.email.replace(/[.@]/g,'_'),d);
-}
-
-const DEPTS=[{id:'hr',n:'الموارد البشرية'},{id:'finance',n:'المحاسبة'},{id:'real_estate',n:'إدارة العقارات'},{id:'operations',n:'التشغيل'},{id:'collection',n:'التحصيل'},{id:'admin',n:'الإدارة العليا'}];
-
-const DEFAULT_EMPS=[
-  {name:'أحمد بيه',uid:'a.beh',email:'ahmed.beh@fast.sa',dept:'admin',role:'admin',sup:''},
-  {name:'مطلق',uid:'mtlq',email:'mutlaq@fast.sa',dept:'admin',role:'gm',sup:''},
-  {name:'محمد فرج',uid:'m.frg',email:'m.farag@fast.sa',dept:'hr',role:'manager',sup:'a.beh'},
-  {name:'بهاء',uid:'bhaa',email:'bahaa@fast.sa',dept:'finance',role:'employee',sup:'mtlq'},
-  {name:'ضياء',uid:'diaa',email:'diaa@fast.sa',dept:'finance',role:'employee',sup:'mtlq'},
-  {name:'أحمد دومة',uid:'a.dma',email:'a.doma@fast.sa',dept:'finance',role:'employee',sup:'mtlq'},
-  {name:'أحمد صبحي',uid:'a.sbh',email:'a.sobhy@fast.sa',dept:'finance',role:'employee',sup:'mtlq'},
-  {name:'رجب',uid:'ragb',email:'ragab@fast.sa',dept:'finance',role:'employee',sup:'mtlq'},
-  {name:'زياد',uid:'ziad',email:'ziad@fast.sa',dept:'real_estate',role:'employee',sup:'mtlq'},
-  {name:'محمد أزهري',uid:'m.azh',email:'m.azhari@fast.sa',dept:'operations',role:'employee',sup:'mtlq'},
-  {name:'حسن عابدين',uid:'h.abd',email:'h.abdeen@fast.sa',dept:'collection',role:'employee',sup:'mtlq'},
-  {name:'سامح أبو سماح',uid:'smah',email:'sameh@fast.sa',dept:'operations',role:'employee',sup:'mtlq'},
-];
-
-const EXT=[
-  {id:'memory',n:'تطابق الذاكرة',ic:'🧩',d:'ذاكرة بصرية',cat:'memory',cl:'ذاكرة'},
-  {id:'sequence',n:'تسلسل الأرقام',ic:'🔢',d:'تذكر وإعادة',cat:'memory',cl:'ذاكرة'},
-  {id:'schulte',n:'جدول شولتي',ic:'🎯',d:'تركيز بصري',cat:'focus',cl:'تركيز'},
-  {id:'stroop',n:'اختبار ستروب',ic:'🌈',d:'مقاومة التشتت',cat:'focus',cl:'تركيز'},
-  {id:'math',n:'حساب ذهني',ic:'➗',d:'سرعة الحساب',cat:'speed',cl:'استجابة'},
-  {id:'raven',n:'أنماط ريفن',ic:'🔷',d:'تفكير منطقي',cat:'logic',cl:'منطق'},
-  {id:'typing',n:'تعلّم الكتابة',ic:'⌨️',d:'حرف بحرف للاحتراف',cat:'speed',cl:'استجابة'},
-  {id:'shortcuts',n:'اختصارات الكيبورد',ic:'🎹',d:'ويندوز + Excel + متصفح',cat:'logic',cl:'منطق'},
-];
-
-const ROLES={employee:'موظف',manager:'مدير قسم',hr:'الموارد البشرية',admin:'المدير العام',gm:'المدير العام'};
-const DL={sa:'🇸🇦 السعودية',eg:'🇪🇬 المصرية',ye:'🇾🇪 اليمنية',sd:'🇸🇩 السودانية',ar:'🌐 الفصحى'};
-
-// ============ MOTIVATIONAL — Deep Dialect + Gender ============
-// g: gender from S.user.gender — 'ذكر' or 'أنثى'
-function G(){return S.user.gender==='أنثى'?'f':'m';}
-
-function getMotiv(first,dialect,streak,isFirst){
-  const g=G(); // m or f
-  if(isFirst){
-    const fm={
-      sa:{
-        m:`هلا وغلا ${first}! 🎉 والله نورت المنصة يالغالي. ذحين بتبدأ رحلة تقوّي فيها عقلك — عشر دقايق كل يوم وبتشوف الفرق بنفسك إن شاء الله.`,
-        f:`هلا وغلا ${first}! 🎉 والله نورتِ المنصة. ذحين بتبدين رحلة تقوّين فيها عقلك — عشر دقايق كل يوم وبتشوفين الفرق بنفسك إن شاء الله.`
-      },
-      eg:{
-        m:`أهلاً وسهلاً يا ${first}! 🎉 نورت المنصة يا معلم. دلوقتي حتبدأ رحلة تطوّر فيها دماغك — عشر دقايق كل يوم وحتحس بالفرق بنفسك إن شاء الله.`,
-        f:`أهلاً وسهلاً يا ${first}! 🎉 نورتي المنصة يا ستي. دلوقتي حتبدأي رحلة تطوّري فيها دماغك — عشر دقايق كل يوم وحتحسي بالفرق بنفسك إن شاء الله.`
-      },
-      ye:{
-        m:`حيّاك الله ${first}! 🎉 نورت المنصة يا غالي. الحين بتبدأ رحلة تقوّي فيها عقلك — عشر دقايق في اليوم وبتلاحظ الفرق بنفسك إن شاء الله.`,
-        f:`حيّاك الله ${first}! 🎉 نورتي المنصة يا غالية. الحين بتبدأي رحلة تقوّي فيها عقلك — عشر دقايق في اليوم وبتلاحظي الفرق بنفسك إن شاء الله.`
-      },
-      sd:{
-        m:`سلام يا زول ${first}! 🎉 نورت المنصة. هسّع بتبدأ رحلة تقوّي فيها عقلك — عشر دقايق كل يوم وإن شاء الله بتلقى الفرق واضح.`,
-        f:`سلام يا ${first}! 🎉 نورتي المنصة يا ستي. هسّع بتبدأي رحلة تقوّي فيها عقلك — عشر دقايق كل يوم وإن شاء الله بتلقي الفرق واضح.`
-      },
-      ar:{
-        m:`مرحباً ${first}! 🎉 أهلاً بك في المنصة. ستبدأ الآن رحلة تطوير ذهنك — عشر دقائق يومياً تصنع فارقاً حقيقياً بإذن الله.`,
-        f:`مرحباً ${first}! 🎉 أهلاً بكِ في المنصة. ستبدأين الآن رحلة تطوير ذهنكِ — عشر دقائق يومياً تصنع فارقاً حقيقياً بإذن الله.`
-      },
-    };
-    return (fm[dialect]||fm.sa)[g]||fm.sa.m;
-  }
-  const day=new Date().getDate();
-  const M={
-    sa:{m:[
-      `هلا ${first}! 💪 التمارين ذي استثمار فيك أنت شخصياً يالغالي — بتنفعك في شغلك ويومك وحياتك كلها.\n\nلا تخلّي أحد يشاركك الحل — أنت يالذيب ما تحتاج أحد. والصعوبة طبيعية، المجتهد يعدّيها! 🚀`,
-      `وش أخبارك ${first}؟ العقل مثل العضلة — مرّنه كل يوم يقوى. عشر دقايق بس وبتحس الفرق في تركيزك وقراراتك.\n\nالحل لازم يجي منك أنت. اللي يداوم يوصل! 🔥`,
-      `يا هلا ${first}! 💎 كل يوم تكمل تمارينك = يوم استثمرت في أغلى شي عندك: عقلك.\n\nممنوع تعطي أحد الحل أو تاخذ من أحد — ذي رحلتك أنت وحدك يالطيب.`,
-      `وش عندنا ${first}؟ 💪 يوم يديد وفرصة يديدة تكون أحسن من أمس.\n\nكل تمرين صعب اليوم بكرة بيصير سهل عليك. الإصرار هو السر يالغالي! ⭐`,
-      `هلا بالطيب ${first}! 🧠 عقلك يستاهل أفضل تدريب. لا تستعجل، خذ راحتك وركّز.\n\nاللي يتمرن كل يوم بيلاحظ الفرق خلال أسبوعين. أنت ماشي صح! 🎯`,
-    ],f:[
-      `هلا ${first}! 💪 التمارين ذي استثمار فيك أنتِ شخصياً يالغالية — بتنفعك في شغلك ويومك وحياتك كلها.\n\nلا تخلّين أحد يشاركك الحل — أنتِ ما تحتاجين أحد. والصعوبة طبيعية، المجتهدة تعدّيها! 🚀`,
-      `وش أخبارك ${first}؟ العقل مثل العضلة — مرّنيه كل يوم يقوى. عشر دقايق بس وبتحسين الفرق في تركيزك وقراراتك.\n\nالحل لازم يجي منك أنتِ. اللي تداوم توصل! 🔥`,
-      `يا هلا ${first}! 💎 كل يوم تكملين تمارينك = يوم استثمرتِ في أغلى شي عندك: عقلك.\n\nممنوع تعطين أحد الحل أو تاخذين من أحد — ذي رحلتك أنتِ وحدك يالغالية.`,
-      `وش عندنا ${first}؟ 💪 يوم يديد وفرصة يديدة تكونين أحسن من أمس.\n\nكل تمرين صعب اليوم بكرة بيصير سهل عليك. الإصرار هو السر يالغالية! ⭐`,
-      `هلا بالغالية ${first}! 🧠 عقلك يستاهل أفضل تدريب. لا تستعجلين، خذي راحتك وركّزي.\n\nاللي تتمرن كل يوم بتلاحظ الفرق خلال أسبوعين. أنتِ ماشية صح! 🎯`,
-    ]},
-    eg:{m:[
-      `إيه الأخبار يا ${first}! 💪 التمارين دي ليك إنت يا معلم — حتفيدك في شغلك وحياتك ويومك كله.\n\nأوعَك تخلي حد يشاركك الحل! إنت راجل كبير ومحتاجش حد. الصعوبة طبيعية، المجتهد بيعديها! 🚀`,
-      `عامل إيه ${first}؟ المخ زي العضلة بالظبط — مرّنه كل يوم حيبقى أقوى. عشر دقايق بس وحتلاقي فرق في تركيزك وقراراتك.\n\nالحل لازم ييجي منك إنت. اللي بيستمر بيوصل! 🔥`,
-      `أهلاً يا كبير ${first}! 💎 كل يوم بتكمل فيه تمارينك = يوم استثمرت في أغلى حاجة عندك: دماغك.\n\nممنوع تدّي حد الحل أو تاخد من حد — الرحلة دي رحلتك إنت لوحدك.`,
-      `صباح/مساء الفل يا ${first}! 💪 يوم جديد وفرصة جديدة تكون أحسن من إمبارح.\n\nكل تمرين صعب النهاردة بكرة حيبقى سهل عليك. الإصرار هو المفتاح يا معلم! ⭐`,
-      `أهلاً يا ${first}! 🧠 دماغك يستاهل أحسن تدريب. متستعجلش، خد وقتك وركّز.\n\nاللي بيتمرن كل يوم حيلاحظ الفرق في أسبوعين. إنت في السكة الصح! 🎯`,
-    ],f:[
-      `إيه الأخبار يا ${first}! 💪 التمارين دي ليكي إنتِ يا ستي — حتفيدك في شغلك وحياتك ويومك كله.\n\nأوعِك تخلي حد يشاركك الحل! إنتِ مش محتاجة حد. الصعوبة طبيعية، المجتهدة بتعديها! 🚀`,
-      `عاملة إيه ${first}؟ المخ زي العضلة بالظبط — مرنيه كل يوم حيبقى أقوى. عشر دقايق بس وحتلاقي فرق في تركيزك وقراراتك.\n\nالحل لازم ييجي منك إنتِ. اللي بتستمر بتوصل! 🔥`,
-      `أهلاً يا ${first}! 💎 كل يوم بتكملي فيه تمارينك = يوم استثمرتي في أغلى حاجة عندك: دماغك.\n\nممنوع تدّي حد الحل أو تاخدي من حد — الرحلة دي رحلتك إنتِ لوحدك.`,
-      `صباح/مساء الفل يا ${first}! 💪 يوم جديد وفرصة جديدة تكوني أحسن من إمبارح.\n\nكل تمرين صعب النهاردة بكرة حيبقى سهل عليكي. الإصرار هو المفتاح يا قمر! ⭐`,
-      `أهلاً يا ${first}! 🧠 دماغك يستاهل أحسن تدريب. متستعجليش، خدي وقتك وركّزي.\n\nاللي بتتمرن كل يوم حتلاحظ الفرق في أسبوعين. إنتِ في السكة الصح! 🎯`,
-    ]},
-    ye:{m:[
-      `حيّاك ${first}! 💪 التمارين ذي لك إنت بالذات يا أخوي — بتفيدك في شغلك ويومك وحياتك.\n\nلا تخلّي أحد يحل لك! إنت قدها وقدود. كل صعوبة المجتهد يعدّيها! 🚀`,
-      `كيف الحال ${first}؟ العقل مثل الجسم — إذا داومت عليه صار أقوى. عشر دقايق بس وبتلاحظ الفرق.\n\nالحل لازم يكون منك إنت. اللي يداوم يوصل! 🔥`,
-      `مرحبا يا ${first}! 💎 كل يوم تكمل فيه = يوم استثمرت في عقلك.\n\nما تحل لأحد وما تطلب حل من أحد — ذي رحلتك إنت وحدك يا أخوي.`,
-      `صباح الخير ${first}! 💪 يوم جديد وفرصة جديدة تكون أقوى من أمس.\n\nكل تمرين صعب اليوم بكرة يصير سهل. الإصرار هو السر! ⭐`,
-    ],f:[
-      `حيّاك الله ${first}! 💪 التمارين ذي لك إنتِ بالذات يا أختي — بتفيدك في شغلك ويومك وحياتك.\n\nلا تخلّي أحد يحل لك! إنتِ قدها. كل صعوبة المجتهدة تعدّيها! 🚀`,
-      `كيف الحال ${first}؟ العقل مثل الجسم — إذا داومتي عليه صار أقوى. عشر دقايق بس وبتلاحظي الفرق.\n\nالحل لازم يكون منك إنتِ. اللي تداوم توصل! 🔥`,
-      `مرحبا يا ${first}! 💎 كل يوم تكملي فيه = يوم استثمرتِ في عقلك.\n\nما تحلي لأحد وما تطلبي حل من أحد — ذي رحلتك إنتِ وحدك يا أختي.`,
-      `صباح الخير ${first}! 💪 يوم جديد وفرصة جديدة تكوني أقوى من أمس.\n\nكل تمرين صعب اليوم بكرة يصير سهل. الإصرار هو السر! ⭐`,
-    ]},
-    sd:{m:[
-      `كيفك يا زول ${first}! 💪 التمارين دي ليك إنت يا حبيب — بتفيدك في شغلك ويومك وحياتك كلها.\n\nما تخلي زول يحل ليك! إنت قدها يا زول. الصعوبة طبيعية، الزول المجتهد بيعديها! 🚀`,
-      `سلام عليك يا ${first}! العقل زي العضلة — مرّنو كل يوم بيكون أقوى. عشر دقايق بس بتفرق معاك كتير.\n\nالحل لازم يجي منك إنت. المستمر بيوصل! 🔥`,
-      `أهلاً يا زول ${first}! 💎 كل يوم بتكملو = يوم استثمرت في عقلك.\n\nما تحل لزول وما تطلب حل من زول — الرحلة دي رحلتك إنت لوحدك يا حبيب.`,
-      `صباح الخير يا ${first}! 💪 يوم جديد وفرصة جديدة تكون أحسن من أمس.\n\nكل حاجة صعبة اليوم بكرة بتكون سهلة. المهم الإصرار يا زول! ⭐`,
-    ],f:[
-      `كيفك يا ${first}! 💪 التمارين دي ليك إنتِ يا ستي — بتفيدك في شغلك ويومك وحياتك كلها.\n\nما تخلي زول يحل ليك! إنتِ قدها يا ستي. الصعوبة طبيعية، الزولة المجتهدة بتعديها! 🚀`,
-      `سلام عليك يا ${first}! العقل زي العضلة — مرنيهو كل يوم بيكون أقوى. عشر دقايق بس بتفرق معاك كتير.\n\nالحل لازم يجي منك إنتِ. المستمرة بتوصل! 🔥`,
-      `أهلاً يا ${first}! 💎 كل يوم بتكمليهو = يوم استثمرتي في عقلك.\n\nما تحلي لزول وما تطلبي حل من زول — الرحلة دي رحلتك إنتِ لوحدك يا ستي.`,
-      `صباح الخير يا ${first}! 💪 يوم جديد وفرصة جديدة تكوني أحسن من أمس.\n\nكل حاجة صعبة اليوم بكرة بتكون سهلة. المهم الإصرار يا ستي! ⭐`,
-    ]},
-    ar:{m:[
-      `مرحباً ${first}! 💪 هذه التمارين استثمار فيك أنت — ستنفعك في عملك وحياتك.\n\nلا تسمح لأحد بمشاركة الحل — أنت قادر عليها. كل صعوبة يتجاوزها المجتهد! 🚀`,
-      `أهلاً ${first}! العقل كالعضلة — درّبه يومياً يزداد قوة. عشر دقائق تصنع فارقاً حقيقياً.\n\nالحل يجب أن يأتي منك أنت. المستمر يصل! 🔥`,
-      `مرحباً ${first}! 💎 كل يوم تُكمل تمارينك هو يوم استثمرت في أثمن ما تملك: عقلك.\n\nلا تشارك الحل ولا تأخذه — هذه رحلتك وحدك.`,
-      `أهلاً ${first}! 💪 يوم جديد وفرصة لتكون أفضل من أمس.\n\nكل تمرين صعب اليوم سيصبح سهلاً غداً. الإصرار مفتاح النجاح! ⭐`,
-    ],f:[
-      `مرحباً ${first}! 💪 هذه التمارين استثمار فيكِ أنتِ — ستنفعكِ في عملكِ وحياتكِ.\n\nلا تسمحي لأحد بمشاركة الحل — أنتِ قادرة عليها. كل صعوبة تتجاوزها المجتهدة! 🚀`,
-      `أهلاً ${first}! العقل كالعضلة — درّبيه يومياً يزداد قوة. عشر دقائق تصنع فارقاً حقيقياً.\n\nالحل يجب أن يأتي منكِ أنتِ. المستمرة تصل! 🔥`,
-      `مرحباً ${first}! 💎 كل يوم تُكملين تمارينكِ هو يوم استثمرتِ في أثمن ما تملكين: عقلكِ.\n\nلا تشاركي الحل ولا تأخذيه — هذه رحلتكِ وحدكِ.`,
-      `أهلاً ${first}! 💪 يوم جديد وفرصة لتكوني أفضل من أمس.\n\nكل تمرين صعب اليوم سيصبح سهلاً غداً. الإصرار مفتاح النجاح! ⭐`,
-    ]},
-  };
-  const dMsgs=M[dialect]||M.sa;
-  const msgs=dMsgs[g]||dMsgs.m;
-  return msgs[day%msgs.length].replace(/\n/g,'<br>');
-}
-
-// ============ SHORTCUTS DATA ============
-const SHORTCUTS = [
-  // Windows عامة
-  {keys:['Ctrl','C'],desc:'نسخ',cat:'ويندوز'},
-  {keys:['Ctrl','V'],desc:'لصق',cat:'ويندوز'},
-  {keys:['Ctrl','X'],desc:'قص',cat:'ويندوز'},
-  {keys:['Ctrl','Z'],desc:'تراجع',cat:'ويندوز'},
-  {keys:['Ctrl','Y'],desc:'إعادة',cat:'ويندوز'},
-  {keys:['Ctrl','A'],desc:'تحديد الكل',cat:'ويندوز'},
-  {keys:['Ctrl','S'],desc:'حفظ',cat:'ويندوز'},
-  {keys:['Ctrl','F'],desc:'بحث',cat:'ويندوز'},
-  {keys:['Alt','Tab'],desc:'التبديل بين النوافذ',cat:'ويندوز',noPress:true},
-  {keys:['Alt','F4'],desc:'إغلاق النافذة',cat:'ويندوز',noPress:true},
-  {keys:['Win','D'],desc:'إظهار سطح المكتب',cat:'ويندوز',noPress:true},
-  {keys:['Win','L'],desc:'قفل الجهاز',cat:'ويندوز',noPress:true},
-  {keys:['Ctrl','Shift','Esc'],desc:'مدير المهام',cat:'ويندوز',noPress:true},
-  {keys:['Win','E'],desc:'فتح مستكشف الملفات',cat:'ويندوز',noPress:true},
-  {keys:['PrtSc'],desc:'لقطة شاشة',cat:'ويندوز'},
-  // Excel
-  {keys:['Ctrl','Home'],desc:'الذهاب لأول خلية',cat:'Excel'},
-  {keys:['Ctrl','End'],desc:'الذهاب لآخر خلية',cat:'Excel'},
-  {keys:['Ctrl','Shift','+'],desc:'إدراج صف/عمود',cat:'Excel'},
-  {keys:['Ctrl','-'],desc:'حذف صف/عمود',cat:'Excel'},
-  {keys:['F2'],desc:'تعديل الخلية',cat:'Excel'},
-  {keys:['Ctrl','D'],desc:'نسخ الخلية للأسفل',cat:'Excel'},
-  {keys:['Ctrl','R'],desc:'نسخ الخلية لليمين',cat:'Excel'},
-  {keys:['Ctrl','Space'],desc:'تحديد العمود كامل',cat:'Excel'},
-  {keys:['Shift','Space'],desc:'تحديد الصف كامل',cat:'Excel'},
-  {keys:['Alt','='],desc:'جمع تلقائي AutoSum',cat:'Excel'},
-  {keys:['Ctrl','1'],desc:'تنسيق الخلايا',cat:'Excel'},
-  {keys:['Ctrl','B'],desc:'خط عريض Bold',cat:'Excel'},
-  // المتصفح
-  {keys:['Ctrl','T'],desc:'فتح تبويب جديد',cat:'متصفح',noPress:true},
-  {keys:['Ctrl','W'],desc:'إغلاق التبويب',cat:'متصفح',noPress:true},
-  {keys:['Ctrl','Shift','T'],desc:'إعادة فتح تبويب مغلق',cat:'متصفح',noPress:true},
-  {keys:['Ctrl','L'],desc:'التركيز على شريط العنوان',cat:'متصفح'},
-  {keys:['Ctrl','Tab'],desc:'التبويب التالي',cat:'متصفح',noPress:true},
-  {keys:['Ctrl','Shift','Tab'],desc:'التبويب السابق',cat:'متصفح',noPress:true},
-  {keys:['F5'],desc:'تحديث الصفحة',cat:'متصفح',noPress:true},
-  {keys:['Ctrl','+'],desc:'تكبير',cat:'متصفح'},
-  {keys:['Ctrl','-'],desc:'تصغير',cat:'متصفح'},
-  {keys:['Ctrl','0'],desc:'إعادة الحجم الطبيعي',cat:'متصفح'},
-];
-
-// TYPING CURRICULUM - Progressive letter-by-letter
-const TYPING_LESSONS={
-  ar:[
-    {id:1,title:'ت ب',chars:'تب',drills:['تتتتت بببببب تبتبتب بتبتبت','تب بت تبت بتب تبتب بتبت']},
-    {id:2,title:'ن ي',chars:'تبني',drills:['ننننن ييييي نينيني ينينين','تبني بنت نبت يبني تبين']},
-    {id:3,title:'م س',chars:'تبنيمس',drills:['ممممم سسسسس مسمسمس سمسمسم','بسم سمن مبنى نسيم تمسي']},
-    {id:4,title:'ا ل',chars:'تبنيمسال',drills:['ااااا للللل الالال لالالا','سلام بيان مال نبات ليمن']},
-    {id:5,title:'ش ك',chars:'تبنيمسالشك',drills:['ششششش ككككك شكشكشك كشكشكش','شمال كتاب مشكلة سكين بنك']},
-    {id:6,title:'ع ق',chars:'تبنيمسالشكعق',drills:['ععععع ققققق عقعقعق قعقعقع','عمل قلب عقل قسم علم سبق']},
-    {id:7,title:'ه ث',chars:'تبنيمسالشكعقهث',drills:['ههههه ثثثثث هثهثهث ثهثهثه','شهر ثمن نهاية بحث كثير']},
-    {id:8,title:'ر ة',chars:'تبنيمسالشكعقهثرة',drills:['ررررر ةةةةة رةرةرة ةرةرةر','كتابة مهارة رسالة قراءة']},
-    {id:9,title:'و ف',chars:'تبنيمسالشكعقهثرةوف',drills:['وووووو فففففف وفوفوف فوفوفو','وقت فكرة معرفة وسيلة']},
-    {id:10,title:'كلمات وجمل',chars:'all',drills:['بسم الله الرحمن الرحيم','العمل الجاد هو مفتاح النجاح','من جد وجد ومن زرع حصد','التدريب اليومي يصنع الفارق الكبير','كل يوم هو فرصة جديدة للتعلم والتطوير','الصبر مفتاح الفرج والنجاح','العلم نور والجهل ظلام','خير الناس انفعهم للناس','رحلة الالف ميل تبدا بخطوة','لا تؤجل عمل اليوم الى الغد']},
-  ],
-  en:[
-    {id:1,title:'F J',chars:'fj',drills:['fff jjj fjfj jfjf fjfjfj','fff jjj fj jf fjf jfj']},
-    {id:2,title:'D K',chars:'fjdk',drills:['ddd kkk dkdk kdkd fdjk','dad fad kid fjdk dkfj']},
-    {id:3,title:'S L',chars:'fjdksl',drills:['sss lll slsl lsls fdjksl','sad lad flask skill falls']},
-    {id:4,title:'A ;',chars:'fjdksla;',drills:['aaa ;;; a;a; ;a;a fjdksla;','ask all fall lass add flask']},
-    {id:5,title:'G H',chars:'fjdksla;gh',drills:['ggg hhh ghgh hghg fjdkslgh','glad half flash glass halls']},
-    {id:6,title:'E I',chars:'fjdksla;ghei',drills:['eee iii eiei ieie ghei','like file side die hide']},
-    {id:7,title:'R U',chars:'fjdksla;gheiur',drills:['rrr uuu ruru urur gheiur','rule fear sure true fire']},
-    {id:8,title:'T Y',chars:'fjdksla;gheiurty',drills:['ttt yyy tyty ytyt gheiurty','they take stay year right']},
-    {id:9,title:'W O',chars:'fjdksla;gheiurtywo',drills:['www ooo wowo owow tywo','work flow grow show world']},
-    {id:10,title:'Full Words',chars:'all',drills:['The quick brown fox jumps over the lazy dog','Practice makes perfect every single day','Success is the sum of small efforts repeated','Hard work beats talent when talent does not work','Every day is a new opportunity to grow and learn','A journey of a thousand miles begins with one step','The best time to start is now','Knowledge is power and practice is the key','Small steps lead to big results over time','Focus on progress not on perfection']},
-  ]
-};
-
-// ============ STATE ============
-let S={user:null,data:null,curEx:null,timer:null};
-let EX={};
-
-function td(){return new Date().toDateString()}
-function dn(id){return DEPTS.find(d=>d.id===id)?.n||''}
-
-// Seeded random — each employee gets different questions daily
-function seedRand(seed){
-  let h=0;for(let i=0;i<seed.length;i++){h=((h<<5)-h)+seed.charCodeAt(i);h|=0;}
-  return function(){h^=h<<13;h^=h>>17;h^=h<<5;return(h>>>0)/4294967296;};
-}
-function empSeed(){return(S.user?.email||'x')+td();}
-function empRand(){if(!EX._rng)EX._rng=seedRand(empSeed());return EX._rng();}
-// Shuffle array with employee-specific seed
-function empShuf(arr){const a=[...arr];const rng=seedRand(empSeed()+(EX.step||0));for(let i=a.length-1;i>0;i--){const j=Math.floor(rng()*((i+1)));[a[i],a[j]]=[a[j],a[i]];}return a;}
-
-// ============ POINTS & RANKS SYSTEM ============
-const RANKS=[
-  {id:'bronze',name:'🥉 برونزي',min:0,color:'#CD7F32'},
-  {id:'silver',name:'🥈 فضي',min:500,color:'#C0C0C0'},
-  {id:'gold',name:'🥇 ذهبي',min:1000,color:'#FDCB6E'},
-  {id:'diamond',name:'💎 ماسي',min:2000,color:'#74b9ff'},
-  {id:'legend',name:'👑 أسطوري',min:3500,color:'#a29bfe'},
-];
-function getRank(pts){for(let i=RANKS.length-1;i>=0;i--)if(pts>=RANKS[i].min)return RANKS[i];return RANKS[0];}
-function getNextRank(pts){for(let i=0;i<RANKS.length;i++)if(pts<RANKS[i].min)return RANKS[i];return null;}
-
-function calcDailyPoints(d){
-  const done=Object.keys(d.todayEx||{}).length;
-  if(done>=8)return 100;if(done>=4)return 50;if(done>=1)return 20;return 0;
-}
-function calcMissedPenalty(d){
-  if(!d.lastA)return 0;
-  const last=new Date(d.lastA);const now=new Date();
-  const diffDays=Math.floor((now-last)/(864e5));
-  if(diffDays<=1)return 0;
-  const excused=d.excusedDays||[];let missedCount=0;
-  for(let i=1;i<diffDays;i++){
-    const checkDate=new Date(last.getTime()+i*864e5).toDateString();
-    const isExcused=excused.some(e=>new Date(e.date).toDateString()===checkDate);
-    const isWeekend=new Date(checkDate).getDay()===5||new Date(checkDate).getDay()===6;
-    if(!isExcused&&!isWeekend)missedCount++;
-  }
-  if(missedCount===0)return 0;if(missedCount===1)return -30;if(missedCount===2)return -70;return -120;
-}
-
-// ============ LOGIN ============
-function showLogin(){
-  R().innerHTML=`<div class="fi" style="display:flex;min-height:100vh;align-items:center;justify-content:center;padding:20px">
-    <div style="background:${C.cb};backdrop-filter:blur(30px);border:1px solid ${C.gb};border-radius:24px;padding:40px;max-width:400px;width:100%;text-align:center">
-      <div style="width:60px;height:60px;background:linear-gradient(135deg,${C.ac},#00B894);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 16px;box-shadow:0 4px 20px ${C.ac}40">🧠</div>
-      <h2 style="font-family:'Readex Pro';font-size:22px;margin-bottom:6px">منصة التدريب الذهني</h2>
-      <p style="color:${C.dim};font-size:13px;margin-bottom:24px">سريع وموثوق</p>
-      <div id="loginForm">
-        <div style="text-align:right;margin-bottom:12px"><label style="font-size:12px;color:${C.dim};display:block;margin-bottom:5px">👤 اسم المستخدم</label>
-          <input class="inp" id="inUid" type="text" placeholder="مثال: ahmed" style="direction:ltr;text-align:left"></div>
-        <div style="text-align:right;margin-bottom:6px"><label style="font-size:12px;color:${C.dim};display:block;margin-bottom:5px">🔐 كلمة المرور</label>
-          <input class="inp" id="inPass" type="password" placeholder="أدخل كلمة المرور"></div>
-        <div id="lErr" style="color:${C.dng};font-size:12px;margin:6px 0;display:none"></div>
-        <button class="btn" onclick="doLogin()" style="margin-top:4px">🚀 دخول</button>
-        <div onclick="showForgot()" style="margin-top:10px;font-size:12px;color:${C.dim};cursor:pointer;text-decoration:underline">نسيت كلمة المرور؟</div>
-      </div>
-      <div id="forgotForm" style="display:none">
-        <div style="font-size:14px;color:${C.ac};margin-bottom:14px;font-weight:600">🔑 استعادة كلمة المرور</div>
-        <div style="text-align:right;margin-bottom:12px"><label style="font-size:12px;color:${C.dim};display:block;margin-bottom:5px">📧 البريد الإلكتروني المسجل</label>
-          <input class="inp" id="inForgotEmail" type="email" placeholder="example@fast.sa" style="direction:ltr;text-align:left"></div>
-        <div id="fMsg" style="font-size:12px;margin:6px 0;display:none"></div>
-        <button class="btn" onclick="doForgot()" style="margin-top:4px">إرسال كلمة المرور الجديدة</button>
-        <div onclick="showLoginForm()" style="margin-top:10px;font-size:12px;color:${C.dim};cursor:pointer;text-decoration:underline">← العودة لتسجيل الدخول</div>
-      </div>
-      <div style="margin-top:18px;padding-top:14px;border-top:1px solid ${C.gb}">
-        <p style="font-size:11px;color:${C.dim};margin-bottom:8px">دخول الإدارة</p>
-        <div style="text-align:center;margin-top:16px;font-size:11px;color:${C.dim}">منصة التدريب الذهني | سريع وموثوق</div>
-      </div>
-    </div></div>`;
-  $('inUid').addEventListener('keydown',e=>{if(e.key==='Enter')$('inPass').focus()});
-  $('inPass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
-}
-
-window.showForgot=function(){$('loginForm').style.display='none';$('forgotForm').style.display='block';};
-window.showLoginForm=function(){$('forgotForm').style.display='none';$('loginForm').style.display='block';};
-
-window.doForgot=function(){
-  const email=$('inForgotEmail').value.trim().toLowerCase();
-  const msg=$('fMsg');msg.style.display='block';
-  const emp=getEmpList().find(e=>e.email===email);
-  if(!emp){msg.style.color=C.dng;msg.textContent='❌ البريد غير مسجل في النظام';return;}
-  // Reset password to 1234
-  const ud=loadU(emp.email);ud.pass='1234';saveU(ud);
-  msg.style.color=C.ac;msg.innerHTML=`✅ تم إعادة تعيين كلمة المرور<br><b>اسم المستخدم:</b> ${emp.uid}<br><b>كلمة المرور الجديدة:</b> 1234<br><span style="color:${C.gld};font-size:11px">غيّرها بعد الدخول من الإعدادات</span>`;
-};
-
-window.doLogin=async function(){
-  const uid=$('inUid').value.trim().toLowerCase();const pass=$('inPass').value;
-  $('lErr').style.display='none';
-  const emp=getEmpList().find(e=>e.uid===uid);
-  if(!emp){$('lErr').textContent='❌ اسم المستخدم غير موجود';$('lErr').style.display='block';return;}
-  // Show loading
-  $('lErr').style.display='block';$('lErr').style.color=C.ac;$('lErr').textContent='⏳ جاري تحميل البيانات...';
-  const ud=await loadUAsync(emp.email);
-  if(pass!==ud.pass){$('lErr').style.color=C.dng;$('lErr').textContent='❌ كلمة المرور غير صحيحة';return;}
-  S.user={...emp};S.data=ud;
-  if(!S.data.dialect) showDialectPicker();
-  else if(!S.data.seenOnboard) showOnboarding(0);
-  else showMotiv();
-};
-
-function showDialectPicker(){
-  const first=S.user.name.split(' ')[0];
-  R().innerHTML=`<div class="fi" style="display:flex;min-height:100vh;align-items:center;justify-content:center;padding:20px">
-    <div style="max-width:480px;width:100%;text-align:center">
-      <div style="width:70px;height:70px;background:linear-gradient(135deg,${C.ac},#00B894);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:34px;margin:0 auto 18px;box-shadow:0 6px 25px ${C.ac}40">🌍</div>
-      <div style="font-family:'Readex Pro';font-size:24px;font-weight:800;margin-bottom:6px">أهلاً ${first}!</div>
-      <p style="color:${C.dim};font-size:14px;margin-bottom:28px">عشان نخاطبك بأسلوب قريب منك، اختر اللهجة اللي تفضلها:</p>
-      <div style="display:flex;flex-direction:column;gap:12px;max-width:340px;margin:0 auto">
-        <div onclick="pickDialect('sa')" style="background:${C.cb};border:2px solid ${C.gb};border-radius:16px;padding:20px;cursor:pointer;transition:all 0.3s;display:flex;align-items:center;gap:14px" onmouseover="this.style.borderColor='${C.ac}';this.style.background='rgba(0,229,184,0.04)'" onmouseout="this.style.borderColor='${C.gb}';this.style.background='${C.cb}'">
-          <span style="font-size:40px">🇸🇦</span>
-          <div style="text-align:right;flex:1"><div style="font-weight:700;font-size:16px;margin-bottom:2px">سعودي</div><div style="font-size:12px;color:${C.dim}">هلا والله! وش الأخبار؟</div></div>
-        </div>
-        <div onclick="pickDialect('eg')" style="background:${C.cb};border:2px solid ${C.gb};border-radius:16px;padding:20px;cursor:pointer;transition:all 0.3s;display:flex;align-items:center;gap:14px" onmouseover="this.style.borderColor='${C.ac}';this.style.background='rgba(0,229,184,0.04)'" onmouseout="this.style.borderColor='${C.gb}';this.style.background='${C.cb}'">
-          <span style="font-size:40px">🇪🇬</span>
-          <div style="text-align:right;flex:1"><div style="font-weight:700;font-size:16px;margin-bottom:2px">مصري</div><div style="font-size:12px;color:${C.dim}">أهلاً يا كابتن! إيه الأخبار؟</div></div>
-        </div>
-        <div onclick="pickDialect('ye')" style="background:${C.cb};border:2px solid ${C.gb};border-radius:16px;padding:20px;cursor:pointer;transition:all 0.3s;display:flex;align-items:center;gap:14px" onmouseover="this.style.borderColor='${C.ac}';this.style.background='rgba(0,229,184,0.04)'" onmouseout="this.style.borderColor='${C.gb}';this.style.background='${C.cb}'">
-          <span style="font-size:40px">🇾🇪</span>
-          <div style="text-align:right;flex:1"><div style="font-weight:700;font-size:16px;margin-bottom:2px">يمني</div><div style="font-size:12px;color:${C.dim}">حيّاك الله! كيفك؟</div></div>
-        </div>
-        <div onclick="pickDialect('sd')" style="background:${C.cb};border:2px solid ${C.gb};border-radius:16px;padding:20px;cursor:pointer;transition:all 0.3s;display:flex;align-items:center;gap:14px" onmouseover="this.style.borderColor='${C.ac}';this.style.background='rgba(0,229,184,0.04)'" onmouseout="this.style.borderColor='${C.gb}';this.style.background='${C.cb}'">
-          <span style="font-size:40px">🇸🇩</span>
-          <div style="text-align:right;flex:1"><div style="font-weight:700;font-size:16px;margin-bottom:2px">سوداني</div><div style="font-size:12px;color:${C.dim}">كيفك يا زول؟</div></div>
-        </div>
-        <div onclick="pickDialect('ar')" style="background:${C.cb};border:2px solid ${C.gb};border-radius:16px;padding:20px;cursor:pointer;transition:all 0.3s;display:flex;align-items:center;gap:14px" onmouseover="this.style.borderColor='${C.ac}';this.style.background='rgba(0,229,184,0.04)'" onmouseout="this.style.borderColor='${C.gb}';this.style.background='${C.cb}'">
-          <span style="font-size:40px">🌐</span>
-          <div style="text-align:right;flex:1"><div style="font-weight:700;font-size:16px;margin-bottom:2px">عربي فصيح</div><div style="font-size:12px;color:${C.dim}">مرحباً بك! كيف حالك؟</div></div>
-        </div>
-      </div>
-    </div></div>`;
-}
-
-window.pickDialect=function(dl){
-  S.data.dialect=dl;saveU(S.data);
-  showOnboarding(0);
-};
-
-// ============ ONBOARDING INFOGRAPHIC ============
-function getOnboardSlides(first){
-  return [
-    {
-      icon:'🧠',grad:`linear-gradient(135deg,${C.ac},#00B894)`,
-      title:`${first}، هذا المكان لك أنت`,
-      body:`هالمنصة مو واجب وظيفي — هذا <b style="color:${C.ac}">استثمار فيك أنت شخصياً</b>.<br><br>عقلك هو أغلى أداة عندك. ومثل ما تهتم بصحة جسمك، عقلك يحتاج <b>تمرين يومي</b> عشان يكون في أفضل حالاته.`,
-      footer:'هالشي بينفعك في شغلك، في بيتك، في صحتك، وفي كل قرار تاخذه.'
-    },
-    {
-      icon:'⏱️',grad:`linear-gradient(135deg,${C.ac2},#a29bfe)`,
-      title:'١٠ دقايق بس',
-      body:`كل يوم عندك <b style="color:${C.ac2}">٨ تمارين قصيرة</b> — ذاكرة، تركيز، سرعة، منطق، كتابة، واختصارات.<br><br>كل تمرين دقيقة أو دقيقتين. أقل من وقت استراحة القهوة ☕`,
-      footer:'مبنية على أدوات علمية حقيقية يستخدمها علماء النفس حول العالم.'
-    },
-    {
-      icon:'📈',grad:`linear-gradient(135deg,${C.gld},#e17055)`,
-      title:'بتشوف الفرق بنفسك',
-      body:`كل يوم تكمل التمارين — تشوف <b style="color:${C.gld}">درجتك ترتفع</b>.<br>المنصة تتابع تقدمك وتقولك بالضبط وين تحسنت.<br><br>الناس اللي داومت أسبوعين لاحظت فرق حقيقي في <b>تركيزها وسرعة قراراتها</b>.`,
-      footer:'مقارنتك الحقيقية مع نفسك بالأمس — مو مع أحد ثاني.'
-    },
-    {
-      icon:'🔒',grad:`linear-gradient(135deg,#ff7675,#d63031)`,
-      title:'القاعدة الذهبية',
-      body:`<div style="font-size:20px;margin:12px 0">🚫 لا تشارك الحل<br>🚫 لا تاخذ حل من أحد</div><br>لو أحد حل لك — هو اللي استفاد مو أنت.<br>ولو حليت لأحد — حرمته من فرصة يتطور.<br><br><b style="color:${C.gld}">كل واحد يبني نفسه بنفسه.</b>`,
-      footer:'الصعوبة طبيعية. كل جديد صعب في البداية — إلا على المجتهد واللي عنده إصرار.'
-    },
-    {
-      icon:'🔥',grad:`linear-gradient(135deg,${C.ac},${C.ac2})`,
-      title:'جاهز تبدأ رحلتك؟',
-      body:`<div style="display:flex;flex-direction:column;gap:10px;text-align:right;font-size:14px;margin:8px 0">
-        <div>✅ كل يوم أكمل تمارين = 🔥 يوم متتالي</div>
-        <div>✅ كل ما تمرنت = 📈 مستواك يرتفع</div>
-        <div>✅ تقدمك محفوظ = 🎯 تشوف تطورك</div>
-        <div>✅ ١٠ دقايق = ☕ أقل من استراحة</div>
-      </div>`,
-      footer:`${first}، عقلك يستاهل. يلا نبدأ! 💪`
-    }
-  ];
-}
-
-function showOnboarding(idx){
-  const first=S.user.name.split(' ')[0];
-  const slides=getOnboardSlides(first);
-  if(idx>=slides.length){S.data.seenOnboard=true;saveU(S.data);showMotiv();return;}
-  const s=slides[idx];const isLast=idx===slides.length-1;
-  const dots=slides.map((_,i)=>`<div style="width:${i===idx?'24px':'8px'};height:8px;border-radius:4px;background:${i===idx?C.ac:'rgba(255,255,255,0.15)'};transition:all 0.3s"></div>`).join('');
-
-  R().innerHTML=`<div class="fi" style="display:flex;min-height:100vh;align-items:center;justify-content:center;padding:24px">
-    <div style="max-width:520px;width:100%;text-align:center">
-      <div style="width:80px;height:80px;background:${s.grad};border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:40px;margin:0 auto 20px;box-shadow:0 8px 30px rgba(0,0,0,0.3)">
-        ${s.icon}</div>
-      <div style="font-family:'Readex Pro';font-size:22px;font-weight:800;margin-bottom:18px;line-height:1.5">${s.title}</div>
-      <div style="background:${C.cb};border:1px solid ${C.gb};border-radius:18px;padding:26px;text-align:right">
-        <div style="font-size:15px;line-height:2.1">${s.body}</div>
-        ${s.footer?`<div style="margin-top:16px;padding:16px;background:rgba(255,255,255,0.03);border-radius:10px;font-size:13px;color:${C.gld};line-height:1.8">💡 ${s.footer}</div>`:''}
-      </div>
-      <div style="display:flex;gap:6px;justify-content:center;margin:22px 0">${dots}</div>
-      <div style="display:flex;gap:10px;justify-content:center;align-items:center">
-        ${idx>0?`<button onclick="showOnboarding(${idx-1})" style="padding:10px 20px;background:rgba(255,255,255,0.05);border:1px solid ${C.gb};border-radius:10px;color:${C.dim};font-family:'Tajawal';font-size:13px;cursor:pointer">→ السابق</button>`:''}
-        <button class="btn" onclick="showOnboarding(${idx+1})" style="max-width:200px;font-size:15px;padding:12px 28px">${isLast?'🚀 يلا نبدأ!':'التالي ←'}</button>
-      </div>
-      <div onclick="showOnboarding(${slides.length})" style="margin-top:10px;font-size:11px;color:${C.dim};cursor:pointer">تخطي الكل</div>
-    </div></div>`;
-}
-
-// ============ MOTIVATIONAL ============
-function showMotiv(){
-  const first=S.user.name.split(' ')[0];const d=S.data;const dl=S.data.dialect||'sa';
-  const hr=new Date().getHours();
-  const greet=G()==='f'?
-    (hr<12?`☀️ صباح النور ${first}`:hr<17?`🌤️ مساء النور ${first}`:`🌙 مساء الخير ${first}`):
-    (hr<12?`☀️ صباح الخير ${first}`:hr<17?`🌤️ مساء النور ${first}`:`🌙 مساء الخير ${first}`);
-  const msg=getMotiv(first,dl,d.streak,d.firstTime);
-  if(d.firstTime){d.firstTime=false;saveU(d);}
-  
-  // Smart guidance for struggling users
-  let guidance='';
-  if(d.hist.length>=10){
-    const recent=d.hist.slice(-10);
-    const recentAvg=Math.round(recent.reduce((a,b)=>a+b.score,0)/recent.length);
-    // Check per-skill weakness
-    const weakSkills=[];
-    EXT.forEach(ex=>{
-      const h=d.hist.filter(x=>x.type===ex.id).slice(-5);
-      if(h.length>=3){
-        const avg=Math.round(h.reduce((a,b)=>a+b.score,0)/h.length);
-        if(avg<50)weakSkills.push({name:ex.n,ic:ex.ic,avg});
-      }
-    });
-    if(recentAvg<40&&d.hist.length>=15){
-      const gMsg=G()==='f'?
-        `${first}، معدلك آخر فترة <b>${recentAvg}%</b> — نحتاج نرفعه. ركّزي على التمارين التالية يومياً ولازم توصلين <b>٥٠%</b> على الأقل خلال أسبوع:`:
-        `${first}، معدلك آخر فترة <b>${recentAvg}%</b> — نحتاج نرفعه. ركّز على التمارين التالية يومياً ولازم توصل <b>٥٠%</b> على الأقل خلال أسبوع:`;
-      guidance=`<div style="background:rgba(255,118,117,0.06);border:1px solid rgba(255,118,117,0.12);border-radius:14px;padding:16px;margin-top:14px;text-align:right">
-        <div style="font-weight:700;color:${C.dng};margin-bottom:6px">📋 خطة تحسين مطلوبة</div>
-        <div style="font-size:14px;color:#E8ECF1;line-height:1.8">${gMsg}</div>
-        ${weakSkills.length?`<div style="margin-top:8px">${weakSkills.map(s=>`<span style="display:inline-block;padding:4px 10px;margin:3px;border-radius:6px;font-size:13px;background:rgba(255,118,117,0.1);color:${C.dng}">${s.ic} ${s.name} (${s.avg}%)</span>`).join('')}</div>`:''}
-      </div>`;
-    }else if(weakSkills.length>=2){
-      const gTip=G()==='f'?'عندك مهارات تحتاج تركيز أكثر — خلّي عندك تمرينين على الأقل كل يوم:':'عندك مهارات تحتاج تركيز أكثر — خلّ عندك تمرينين على الأقل كل يوم:';
-      guidance=`<div style="background:rgba(253,203,110,0.06);border:1px solid rgba(253,203,110,0.12);border-radius:14px;padding:16px;margin-top:14px;text-align:right">
-        <div style="font-weight:700;color:${C.gld};margin-bottom:6px">💡 نصيحة ${G()==='f'?'لك':'لك'}</div>
-        <div style="font-size:14px;color:#E8ECF1;line-height:1.8">${gTip}</div>
-        <div style="margin-top:8px">${weakSkills.map(s=>`<span style="display:inline-block;padding:4px 10px;margin:3px;border-radius:6px;font-size:13px;background:rgba(253,203,110,0.1);color:${C.gld}">${s.ic} ${s.name} (${s.avg}%)</span>`).join('')}</div>
-      </div>`;
-    }
-  }
-
-  R().innerHTML=`<div class="fi" style="display:flex;min-height:100vh;align-items:center;justify-content:center;padding:32px">
-    <div style="max-width:600px;width:100%;text-align:center">
-      <div style="font-family:'Readex Pro';font-size:26px;font-weight:800;margin-bottom:8px;background:linear-gradient(135deg,${C.ac},${C.gld});-webkit-background-clip:text;-webkit-text-fill-color:transparent">${greet}</div>
-      <div style="font-size:13px;color:${C.dim};margin-bottom:24px">${new Date().toLocaleDateString('ar-SA',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</div>
-      <div style="background:${C.cb};border:1px solid ${C.gb};border-radius:20px;padding:28px;text-align:right">
-        <div style="font-size:11px;color:${C.dim};margin-bottom:10px;text-align:right">${DL[dl]||DL.sa} رسالة اليوم</div>
-        <div style="font-size:15px;line-height:2">${msg}</div>
-        <div style="display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap">
-          <span style="padding:5px 12px;border-radius:8px;font-size:12px;background:rgba(253,203,110,0.1);color:${C.gld};border:1px solid rgba(253,203,110,0.15)">🔥 ${d.streak} يوم</span>
-          <span style="padding:5px 12px;border-radius:8px;font-size:12px;background:rgba(108,92,231,0.1);color:#a29bfe;border:1px solid rgba(108,92,231,0.15)">⭐ مستوى ${d.level}</span>
-          <span style="padding:5px 12px;border-radius:8px;font-size:12px;background:${getRank(d.points).color}18;color:${getRank(d.points).color};border:1px solid ${getRank(d.points).color}30">${getRank(d.points).name}</span>
-          <span style="padding:5px 12px;border-radius:8px;font-size:12px;background:rgba(0,229,184,0.1);color:${C.ac};border:1px solid rgba(0,229,184,0.15)">💰 ${d.points} نقطة</span>
-        </div>
-        ${guidance}
-      </div>
-      <button class="btn" onclick="showMain()" style="max-width:260px;margin:24px auto 0;display:block;font-size:16px">💪 يلا نبدأ</button>
-      <div onclick="showMain()" style="margin-top:12px;font-size:12px;color:${C.dim};cursor:pointer">تخطي</div>
-    </div></div>`;
-}
-
-// ============ MAIN ============
-function showMain(){
-  const r=S.user.role;
-  let tabs=[];
-  if(r==='employee'||r==='manager'){tabs.push({id:'ex',l:'📋 التمارين'},{id:'prog',l:'📊 تقدمي'},{id:'settings',l:'⚙️ الإعدادات'});}
-  if(r==='manager')tabs.splice(2,0,{id:'team',l:'👥 فريقي'});
-  if(r==='hr'||r==='admin'||r==='gm'){tabs.push({id:'ex',l:'📋 التمارين'},{id:'adm',l:'⚙️ لوحة التحكم'},{id:'settings',l:'🔧 الإعدادات'});}
-
-  R().innerHTML=`<div class="hdr"><div style="display:flex;align-items:center;gap:12px"><div style="width:42px;height:42px;background:linear-gradient(135deg,${C.ac},#00B894);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 4px 20px ${C.ac}40">🧠</div><div><div style="font-family:'Readex Pro';font-size:17px;font-weight:700">التدريب الذهني</div><div style="font-size:11px;color:${C.ac}">سريع وموثوق</div></div></div>
-    <div style="display:flex;align-items:center;gap:14px"><div><div style="font-weight:600;font-size:13px;text-align:left">${S.user.name}</div><div style="font-size:11px;color:${C.dim}">${ROLES[r]}</div></div>
-    <button onclick="doLogout()" style="padding:6px 14px;background:rgba(255,118,117,0.1);border:1px solid rgba(255,118,117,0.2);border-radius:8px;color:${C.dng};font-family:'Tajawal';font-size:12px;cursor:pointer">خروج</button></div></div>
-  <div style="display:flex;gap:3px;padding:12px 32px;background:rgba(10,15,28,0.5);border-bottom:1px solid ${C.gb};overflow-x:auto" id="nav">
-    ${tabs.map((t,i)=>`<div class="nt" data-t="${t.id}" onclick="nav('${t.id}')" style="padding:9px 18px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:500;white-space:nowrap;transition:all 0.3s;color:${i===0?C.ac:C.dim};background:${i===0?'rgba(0,229,184,0.08)':'transparent'};border:1px solid ${i===0?'rgba(0,229,184,0.15)':'transparent'}">${t.l}</div>`).join('')}
-  </div>
-  <div style="padding:24px 32px;max-width:1400px;margin:0 auto" id="ct"></div>`;
-  nav(tabs[0].id);
-}
-
-window.nav=function(t){document.querySelectorAll('.nt').forEach(n=>{const a=n.dataset.t===t;n.style.color=a?C.ac:C.dim;n.style.background=a?'rgba(0,229,184,0.08)':'transparent';n.style.borderColor=a?'rgba(0,229,184,0.15)':'transparent';});
-  if(t==='ex')rExercises();else if(t==='prog')rProgress();else if(t==='team')rTeam();else if(t==='adm')rAdmin();else if(t==='settings')rSettings();};
-window.doLogout=function(){S.user=null;S.data=null;clearInterval(S.timer);showLogin();};
-
-// ============ SETTINGS (Change Password) ============
-function rSettings(){
-  $('ct').innerHTML=`<div class="card fi" style="max-width:500px">
-    <div style="font-family:'Readex Pro';font-size:18px;font-weight:600;margin-bottom:20px">🔐 تغيير كلمة المرور</div>
-    <div style="margin-bottom:12px"><label style="font-size:12px;color:${C.dim};display:block;margin-bottom:5px">كلمة المرور الحالية</label><input class="inp" type="password" id="oldPass"></div>
-    <div style="margin-bottom:12px"><label style="font-size:12px;color:${C.dim};display:block;margin-bottom:5px">كلمة المرور الجديدة</label><input class="inp" type="password" id="newPass"></div>
-    <div style="margin-bottom:16px"><label style="font-size:12px;color:${C.dim};display:block;margin-bottom:5px">تأكيد كلمة المرور الجديدة</label><input class="inp" type="password" id="newPass2"></div>
-    <div id="passMsg" style="font-size:13px;margin-bottom:10px;display:none"></div>
-    <button class="btn" style="max-width:200px" onclick="changePass()">تغيير</button>
-  </div>
-  <div class="card fi" style="max-width:500px;margin-top:16px">
-    <div style="font-family:'Readex Pro';font-size:18px;font-weight:600;margin-bottom:10px">📧 معلومات الحساب</div>
-    <div style="font-size:14px;color:${C.dim};margin-bottom:6px">اسم المستخدم: <span style="color:#fff;direction:ltr;display:inline-block;font-weight:600">${S.user.uid}</span></div>
-    <div style="font-size:14px;color:${C.dim};margin-bottom:6px">البريد: <span style="color:#fff;direction:ltr;display:inline-block">${S.user.email}</span></div>
-    <div style="font-size:14px;color:${C.dim}">القسم: <span style="color:#fff">${dn(S.user.dept)}</span></div>
-    <div style="margin-top:10px;padding:8px 12px;background:rgba(253,203,110,0.08);border:1px solid rgba(253,203,110,0.12);border-radius:8px;font-size:11px;color:${C.gld}">💡 لو نسيت كلمة المرور، استخدم بريدك الإلكتروني لاستعادتها من صفحة الدخول</div>
-  </div>
-  <div class="card fi" style="max-width:500px;margin-top:16px">
-    <div style="font-family:'Readex Pro';font-size:18px;font-weight:600;margin-bottom:14px">🌍 اللهجة المفضلة</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      ${[['sa','🇸🇦 سعودي'],['eg','🇪🇬 مصري'],['ye','🇾🇪 يمني'],['sd','🇸🇩 سوداني'],['ar','🌐 فصحى']].map(([k,l])=>`<div onclick="changeDL('${k}')" style="padding:8px 16px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.3s;border:2px solid ${S.data.dialect===k?C.ac:C.gb};background:${S.data.dialect===k?'rgba(0,229,184,0.08)':'transparent'};color:${S.data.dialect===k?C.ac:'inherit'}">${l}</div>`).join('')}
-    </div>
-    <div id="dlMsg" style="font-size:12px;margin-top:8px;color:${C.ac};display:none"></div>
-  </div>
-  <div class="card fi" style="max-width:500px;margin-top:16px">
-    <div style="font-family:'Readex Pro';font-size:18px;font-weight:600;margin-bottom:14px">✏️ تعديل بياناتي</div>
-    <div style="margin-bottom:12px"><label style="font-size:12px;color:${C.dim};display:block;margin-bottom:5px">الاسم بالعربي</label><input class="inp" id="edName" value="${S.user.name||''}"></div>
-    <div style="margin-bottom:12px"><label style="font-size:12px;color:${C.dim};display:block;margin-bottom:5px">البريد الإلكتروني</label><input class="inp" id="edEmail" value="${S.user.email||''}" style="direction:ltr;text-align:left"></div>
-    <div style="margin-bottom:12px"><label style="font-size:12px;color:${C.dim};display:block;margin-bottom:5px">الجوال</label><input class="inp" id="edPhone" value="${S.user.phone||''}" style="direction:ltr;text-align:left" placeholder="05xxxxxxxx"></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-      <div><label style="font-size:12px;color:${C.dim};display:block;margin-bottom:5px">الجنس</label><select class="inp" id="edGender"><option value="ذكر" ${S.user.gender==='أنثى'?'':'selected'}>ذكر</option><option value="أنثى" ${S.user.gender==='أنثى'?'selected':''}>أنثى</option></select></div>
-      <div><label style="font-size:12px;color:${C.dim};display:block;margin-bottom:5px">العمر</label><input class="inp" type="number" id="edAge" value="${S.user.age||''}" placeholder="25"></div>
-    </div>
-    <div id="edMsg" style="font-size:13px;margin-bottom:10px;display:none"></div>
-    <button class="btn" style="max-width:200px" onclick="saveProfile()">💾 حفظ التعديلات</button>
-  </div>
-    <p style="font-size:13px;color:${C.dim};margin-bottom:12px">شوف مرة ثانية الشرح التعريفي عن المنصة وفلسفتها وليش هي مهمة لك.</p>
-    <button class="btn" style="max-width:220px;font-size:13px;padding:10px" onclick="showOnboarding(0)">🎬 عرض الشرح التعريفي</button>
-  </div>
-  ${S.user.role==='gm'?`<div class="card fi" style="max-width:500px;margin-top:16px">
-    <div style="font-family:'Readex Pro';font-size:18px;font-weight:600;margin-bottom:10px">🔄 إعادة تمارين اليوم</div>
-    <p style="font-size:13px;color:${C.dim};margin-bottom:12px">صلاحية المدير العام فقط — لأي حاجة طارئة في الفترة التجريبية.</p>
-    <button class="btn" style="max-width:220px;font-size:13px;padding:10px;background:linear-gradient(135deg,${C.ac2},#a29bfe)" onclick="resetToday()">🔄 إعادة تمارين اليوم</button>
-    <div id="resetMsg" style="font-size:12px;margin-top:8px;color:${C.ac};display:none"></div>
-  </div>
-  <div class="card fi" style="max-width:600px;margin-top:16px;border-color:rgba(255,118,117,0.2)">
-    <div style="font-family:'Readex Pro';font-size:18px;font-weight:600;margin-bottom:10px;color:${C.dng}">🗑️ إدارة بيانات الموظفين</div>
-    <p style="font-size:13px;color:${C.dim};margin-bottom:14px;line-height:1.8">اختر الموظفين اللي تبي تمسح بياناتهم (السجلات والنقاط) أو تحذفهم بالكامل.</p>
-    <div id="empResetList" style="max-height:350px;overflow-y:auto">
-    ${getEmpList().map((e,i)=>{
-      const d=gs('u_'+e.email);
-      const hist=d?.hist?.length||0;
-      const pts=d?.points||0;
-      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid ${C.gb};gap:10px">
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:600;font-size:13px">${e.name} <span style="color:${C.dim};font-size:11px;direction:ltr">${e.uid}</span></div>
-          <div style="font-size:11px;color:${C.dim}">${hist} تمرين | ${pts} نقطة | ${dn(e.dept)}</div>
-        </div>
-        <div style="display:flex;gap:6px;flex-shrink:0">
-          <button onclick="resetEmpData('${e.email}','${e.name}')" style="padding:5px 10px;background:rgba(253,203,110,0.1);border:1px solid rgba(253,203,110,0.2);border-radius:6px;color:${C.gld};font-family:'Tajawal';font-size:11px;cursor:pointer" title="مسح السجلات والنقاط فقط">🔄 مسح بياناته</button>
-          <button onclick="removeEmpFull(${i},'${e.name}')" style="padding:5px 10px;background:rgba(255,118,117,0.1);border:1px solid rgba(255,118,117,0.2);border-radius:6px;color:${C.dng};font-family:'Tajawal';font-size:11px;cursor:pointer" title="حذف الموظف بالكامل">🗑️ حذف</button>
-        </div>
-      </div>`;
-    }).join('')}
-    </div>
-    <div style="display:flex;gap:8px;margin-top:12px">
-      <button onclick="resetAllDataConfirm()" style="padding:8px 16px;background:rgba(255,118,117,0.1);border:1px solid rgba(255,118,117,0.2);border-radius:8px;color:${C.dng};font-family:'Tajawal';font-size:12px;cursor:pointer">🗑️ مسح بيانات الكل</button>
-    </div>
-    <div id="resetAllMsg" style="font-size:12px;margin-top:8px;display:none"></div>
-  </div>`:''}`;
-}
-
-window.changePass=function(){
-  const old=$('oldPass').value,nw=$('newPass').value,nw2=$('newPass2').value;const msg=$('passMsg');
-  msg.style.display='block';
-  if(old!==S.data.pass){msg.style.color=C.dng;msg.textContent='❌ كلمة المرور الحالية غير صحيحة';return;}
-  if(nw.length<4){msg.style.color=C.dng;msg.textContent='❌ كلمة المرور الجديدة قصيرة (4 أحرف على الأقل)';return;}
-  if(nw!==nw2){msg.style.color=C.dng;msg.textContent='❌ كلمة المرور الجديدة غير متطابقة';return;}
-  S.data.pass=nw;saveU(S.data);
-  msg.style.color=C.ac;msg.textContent='✅ تم تغيير كلمة المرور بنجاح!';
-  $('oldPass').value='';$('newPass').value='';$('newPass2').value='';
-};
-
-window.saveProfile=async function(){
-  const name=$('edName').value.trim();const email=$('edEmail').value.trim().toLowerCase();
-  const phone=$('edPhone').value.trim();const gender=$('edGender').value;const age=$('edAge').value;
-  const msg=$('edMsg');msg.style.display='block';
-  if(!name){msg.style.color=C.dng;msg.textContent='❌ الاسم مطلوب';return;}
-  
-  const emps=getEmpList();const idx=emps.findIndex(e=>e.uid===S.user.uid);
-  if(idx<0){msg.style.color=C.dng;msg.textContent='❌ خطأ في البيانات';return;}
-  
-  // Check if email changed and is unique
-  const oldEmail=S.user.email;
-  if(email!==oldEmail){
-    if(emps.find(e=>e.email===email&&e.uid!==S.user.uid)){msg.style.color=C.dng;msg.textContent='❌ البريد مستخدم من موظف آخر';return;}
-    // Migrate user data to new email
-    const d=gs('u_'+oldEmail);
-    if(d){d.email=email;ss('u_'+email,d);localStorage.removeItem('u_'+oldEmail);
-      await fbDel('users',oldEmail.replace(/[.@]/g,'_'));
-      await fbSet('users',email.replace(/[.@]/g,'_'),d);
-      S.data=d;
-    }
-  }
-  
-  // Update employee record
-  emps[idx].name=name;emps[idx].email=email;
-  if(phone)emps[idx].phone=phone;
-  if(gender)emps[idx].gender=gender;
-  if(age)emps[idx].age=parseInt(age);
-  await setEmps(emps);
-  
-  // Update session
-  S.user={...emps[idx]};
-  msg.style.color=C.ac;msg.textContent='✅ تم حفظ التعديلات!';
-};
-
-window.changeDL=function(dl){
-  S.data.dialect=dl;saveU(S.data);rSettings();
-};
-
-window.resetToday=function(){
-  S.data.todayEx={};saveU(S.data);
-  const msg=$('resetMsg');if(msg){msg.style.display='block';msg.textContent='✅ تم! تقدر تجرب التمارين من جديد';}
-};
-
-window.resetEmpToday=function(){
-  const email=$('resetEmpSel').value;
-  const msg=$('resetEmpMsg');msg.style.display='block';
-  const d=gs('u_'+email);
-  if(!d){msg.style.color=C.dng;msg.textContent='❌ لا توجد بيانات لهذا الموظف';return;}
-  d.todayEx={};d.todayD=null;
-  ss('u_'+email,d);
-  fbSet('users',email.replace(/[.@]/g,'_'),d);
-  if(S.data.email===email)S.data=loadU(email);
-  const emp=getEmpList().find(e=>e.email===email);
-  msg.style.color=C.ac;msg.textContent=`✅ تم إعادة تمارين اليوم لـ ${emp?.name||email}`;
-};
-
-// Reset one employee's data (keep their account)
-window.resetEmpData=function(email,name){
-  if(!confirm(`مسح سجلات وبيانات ${name}؟\n\nيُمسح: التمارين، النقاط، المراتب، الستريك\nيبقى: الحساب، الاسم، الإيميل، كلمة السر`))return;
-  const d=gs('u_'+email);
-  if(d){
-    d.hist=[];d.todayEx={};d.todayD=null;d.streak=0;d.best=0;d.level=1;
-    d.points=0;d.lastA=null;d.firstTime=true;
-    d.excusedDays=[];d.goldenHist=[];d.weekendMins=0;
-    d.goldenExDone=0;d.goldenStart=null;
-    ss('u_'+email,d);
-    fbSet('users',email.replace(/[.@]/g,'_'),d);
-  }
-  if(S.data.email===email){
-    S.data=loadU(email);
-  }
-  const msg=$('resetAllMsg');
-  if(msg){msg.style.display='block';msg.style.color=C.ac;msg.textContent=`✅ تم مسح بيانات ${name}`;}
-  setTimeout(()=>rSettings(),1500);
-};
-
-// Remove employee completely (account + data)
-window.removeEmpFull=async function(idx,name){
-  if(!confirm(`⚠️ حذف ${name} بالكامل؟\n\nيُحذف: الحساب + جميع البيانات\nما يرجع!`))return;
-  const emps=getEmpList();
-  if(idx>=0&&idx<emps.length){
-    const email=emps[idx].email;
-    localStorage.removeItem('u_'+email);
-    await fbDel('users',email.replace(/[.@]/g,'_'));
-    emps.splice(idx,1);
-    await setEmps(emps);
-  }
-  const msg=$('resetAllMsg');
-  if(msg){msg.style.display='block';msg.style.color=C.ac;msg.textContent=`✅ تم حذف ${name} بالكامل`;}
-  setTimeout(()=>rSettings(),1500);
-};
-
-// Reset ALL employees data
-window.resetAllDataConfirm=async function(){
-  if(!confirm('⚠️ مسح بيانات جميع الموظفين؟\n\nالحسابات تبقى — بس السجلات والنقاط تُمسح.'))return;
-  if(!confirm('🔴 تأكيد نهائي؟'))return;
-  const emps=getEmpList();
-  for(const e of emps){
-    const d=gs('u_'+e.email);
-    if(d){
-      d.hist=[];d.todayEx={};d.todayD=null;d.streak=0;d.best=0;d.level=1;
-      d.points=0;d.lastA=null;d.firstTime=true;
-      d.excusedDays=[];d.goldenHist=[];d.weekendMins=0;
-      ss('u_'+e.email,d);
-      await fbSet('users',e.email.replace(/[.@]/g,'_'),d);
-    }
-  }
-  S.data=loadU(S.data.email);
-  localStorage.removeItem('excuse_log');
-  const msg=$('resetAllMsg');
-  if(msg){msg.style.display='block';msg.style.color=C.ac;msg.textContent='✅ تم مسح بيانات الجميع — الكل يبدأ من صفر';}
-  setTimeout(()=>rSettings(),2000);
-};
-
-// ============ EXERCISES ============
-function rExercises(){
-  const u=S.data;const done=Object.keys(u.todayEx).length;
-  const avg=u.hist.length?Math.round(u.hist.reduce((a,b)=>a+b.score,0)/u.hist.length):0;
-  const catC={memory:'background:rgba(108,92,231,0.15);color:#a29bfe',focus:`background:rgba(0,229,184,0.15);color:${C.ac}`,speed:`background:rgba(253,203,110,0.15);color:${C.gld}`,logic:'background:rgba(255,118,117,0.15);color:#ff7675'};
-  $('ct').innerHTML=`<div class="fi" style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:24px">
-    ${[['المرتبة',getRank(u.points).name],['النقاط',u.points],['تمارين اليوم',done+'/8'],['أيام متتالية',u.streak+' 🔥'],['المعدل',avg+'%']].map(([l,v])=>`<div style="background:${C.cb};border:1px solid ${C.gb};border-radius:16px;padding:16px"><div style="font-size:11px;color:${C.dim};margin-bottom:5px">${l}</div><div style="font-family:'Readex Pro';font-size:22px;font-weight:700">${v}</div></div>`).join('')}</div>
-  ${getNextRank(u.points)?`<div class="fi" style="margin-bottom:20px;padding:12px 18px;background:${C.cb};border:1px solid ${C.gb};border-radius:14px;display:flex;align-items:center;gap:14px">
-    <div style="flex:1"><div style="font-size:12px;color:${C.dim};margin-bottom:5px">التقدم نحو: <b style="color:${getNextRank(u.points).color}">${getNextRank(u.points).name}</b></div>
-    <div style="width:100%;height:6px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden"><div style="height:100%;width:${Math.min(100,Math.round((u.points-getRank(u.points).min)/(getNextRank(u.points).min-getRank(u.points).min)*100))}%;background:${getNextRank(u.points).color};border-radius:3px;transition:width 0.5s"></div></div>
-    <div style="font-size:11px;color:${C.dim};margin-top:3px">${u.points} / ${getNextRank(u.points).min} نقطة</div></div></div>`:''}`;
-  const exOrder=['memory','sequence','schulte','stroop','math','raven','typing','shortcuts'];
-  let nextIdx=exOrder.findIndex(id=>!u.todayEx[id]);
-  if(nextIdx<0)nextIdx=exOrder.length;
-  
-  $('ct').innerHTML+= `<div class="card fi" id="exSel"><div style="font-family:'Readex Pro';font-size:18px;font-weight:600;margin-bottom:6px">📝 تمارين اليوم</div>
-    <div style="font-size:13px;color:${C.dim};margin-bottom:16px">${done}/8 مكتمل — ${done>=8?'🎉 أكملت الكل!':'ابدأ بالترتيب من اليسار'}</div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">${exOrder.map((id,i)=>{const ex=EXT.find(e=>e.id===id);const d=u.todayEx[id];const isNext=i===nextIdx;const locked=i>nextIdx&&!d;
-    return`<div onclick="${d?'':(locked?'':`startEx('${id}')`)}" style="background:${d?'rgba(0,229,184,0.06)':isNext?'rgba(253,203,110,0.04)':'rgba(255,255,255,0.015)'};border:2px solid ${d?'rgba(0,229,184,0.3)':isNext?'rgba(253,203,110,0.3)':'rgba(255,255,255,0.05)'};border-radius:14px;padding:16px;text-align:center;cursor:${d?'default':(locked?'not-allowed':'pointer')};transition:all 0.3s;opacity:${locked?'0.4':'1'};position:relative">
-      ${d?'<div style="position:absolute;top:6px;left:6px;font-size:16px">✅</div>':''}
-      ${isNext&&!d?'<div style="position:absolute;top:6px;left:6px;font-size:10px;background:rgba(253,203,110,0.2);color:'+C.gld+';padding:2px 6px;border-radius:4px;font-weight:700">التالي</div>':''}
-      ${locked?'<div style="position:absolute;top:6px;left:6px;font-size:14px">🔒</div>':''}
-      <div style="font-size:28px;margin-bottom:6px">${ex.ic}</div><div style="font-weight:600;font-size:13px;margin-bottom:2px">${ex.n}</div><div style="font-size:10px;color:${C.dim}">${ex.d}</div>
-      <div style="font-size:9px;margin-top:5px;padding:2px 7px;border-radius:4px;display:inline-block;${catC[ex.cat]}">${ex.cl}</div>
-      <div style="margin-top:6px;font-size:11px;padding:3px 8px;border-radius:5px;display:inline-block;background:${d?'rgba(0,229,184,0.15)':'rgba(255,255,255,0.05)'};color:${d?C.ac:C.dim};font-weight:${d?'700':'400'}">${d?d.score+'%':'—'}</div></div>`;}).join('')}</div></div>
-  <div class="card fi" id="exAct" style="display:none">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div style="font-family:'Readex Pro';font-size:18px;font-weight:600" id="exT"></div><div style="padding:6px 14px;background:rgba(253,203,110,0.08);border:1px solid rgba(253,203,110,0.15);border-radius:8px;font-size:13px;color:${C.gld};font-weight:600" id="exTm">⏱️ 00:00</div></div>
-    <div style="width:100%;height:5px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden;margin:14px 0"><div id="exP" style="height:100%;background:linear-gradient(90deg,${C.ac},${C.ac2});border-radius:3px;transition:width 0.5s;width:0%"></div></div>
-    <div id="exA" style="min-height:340px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:16px"></div></div>
-  ${renderGoldenBanner()}`;
-}
-
-// ============ GOLDEN SESSION + WEEKEND TRAINING ============
-function isWeekend(){const d=new Date().getDay();return d===5||d===6;} // Fri+Sat in SA
-function isAfter7(){return new Date().getHours()>=19;}
-function getWeeklyTop3(){
-  const emps=getEmpList();const weekAgo=Date.now()-7*864e5;
-  const scores=emps.map(e=>{
-    const ud=gs('u_'+e.email);if(!ud)return{name:e.name,avg:0};
-    const wk=ud.hist.filter(h=>new Date(h.date)>=new Date(weekAgo));
-    const avg=wk.length?Math.round(wk.reduce((a,b)=>a+b.score,0)/wk.length):0;
-    return{name:e.name,email:e.email,avg,count:wk.length};
-  }).filter(s=>s.count>=5).sort((a,b)=>b.avg-a.avg);
-  return scores.slice(0,3);
-}
-function isEligibleGolden(){
-  const top3=getWeeklyTop3();
-  return top3.some(t=>t.email===S.user.email);
-}
-
-function renderGoldenBanner(){
-  const hr=new Date().getHours();
-  const weekend=isWeekend();
-  const after7=isAfter7();
-  const eligible=isEligibleGolden();
-  const todayDone=Object.keys(S.data.todayEx).length>=1;
-  
-  // Weekend training (for everyone, doesn't affect scores)
-  if(weekend&&todayDone){
-    const wkMins=S.data.weekendMins||0;
-    return `<div class="card fi" style="margin-top:16px;background:linear-gradient(135deg,rgba(108,92,231,0.08),rgba(0,229,184,0.05));border:1px solid rgba(108,92,231,0.2)">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
-        <span style="font-size:28px">🏋️</span>
-        <div><div style="font-family:'Readex Pro';font-size:16px;font-weight:700">تدريب الويكند</div>
-        <div style="font-size:12px;color:${C.ac2}">تدريب حر — ما يأثر على نتائجك وترتيبك</div></div>
-      </div>
-      <div style="font-size:13px;color:${C.dim};margin-bottom:12px;line-height:1.8">استثمر وقتك وطوّر نفسك. الموظف اللي يتدرب بالويكند باستمرار يُكافأ بمكافآت خارجية مميزة 🎁</div>
-      <div style="font-size:12px;color:${C.ac2};margin-bottom:10px">⏱️ تدربت هالشهر: <b>${wkMins}</b> دقيقة في الويكند</div>
-      <button class="btn" onclick="startWeekendTraining()" style="max-width:220px;font-size:14px;padding:12px;background:linear-gradient(135deg,${C.ac2},#a29bfe)">🏋️ ابدأ التدريب الحر</button>
-    </div>`;
-  }
-  
-  // Golden session (after 7pm, top 3 only)
-  if(after7&&eligible&&todayDone){
-    return `<div class="card fi" style="margin-top:16px;background:linear-gradient(135deg,rgba(253,203,110,0.1),rgba(255,193,7,0.05));border:1px solid rgba(253,203,110,0.3)">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
-        <span style="font-size:28px">🏆</span>
-        <div><div style="font-family:'Readex Pro';font-size:16px;font-weight:700;color:${C.gld}">الجلسة الذهبية</div>
-        <div style="font-size:12px;color:${C.gld}">مكافأة لأفضل ٣ بالفريق هالأسبوع!</div></div>
-      </div>
-      <div style="font-size:13px;color:#E8ECF1;margin-bottom:12px;line-height:1.8">أنت من <b style="color:${C.gld}">أفضل ٣</b> هالأسبوع — تستاهل! ١٥ دقيقة تمارين متقدمة مع تحفيز وتحدي. الوقت يُحسب كبدل خارج دوام ⏰</div>
-      <button class="btn" onclick="startGoldenSession()" style="max-width:220px;font-size:14px;padding:12px;background:linear-gradient(135deg,${C.gld},#f39c12)">🏆 ابدأ الجلسة الذهبية!</button>
-    </div>`;
-  }
-  
-  // Show locked golden session teaser (after 7pm but not eligible)
-  if(after7&&!eligible&&todayDone){
-    return `<div class="card fi" style="margin-top:16px;opacity:0.5">
-      <div style="display:flex;align-items:center;gap:12px">
-        <span style="font-size:28px">🔒</span>
-        <div><div style="font-family:'Readex Pro';font-size:15px;font-weight:600;color:${C.dim}">الجلسة الذهبية — مقفلة</div>
-        <div style="font-size:12px;color:${C.dim}">متاحة لأفضل ٣ بالفريق هالأسبوع</div></div>
-      </div>
-    </div>`;
-  }
-  
-  return '';
-}
-
-function getGoldenQuote(){
-  const q=G()==='f'?[
-    'أنتِ من القلة اللي يستثمرون بأنفسهم — استمري!',
-    'التميّز ما جاك صدفة — جاك لأنك تستاهلين',
-    'كل دقيقة تستثمرينها بنفسك ترجعلك أضعاف',
-    'الفرق بين العادية والاستثنائية = الجهد الإضافي',
-    'أنتِ هنا لأنك من أفضل ٣ — فخر للفريق!',
-    'التكرار المتعمد يصنع المحترفين',
-    'الناجحة ما تتدرب لين تصح — تتدرب لين ما تغلط',
-  ]:[
-    'أنت من القلة اللي يستثمرون بأنفسهم — استمر!',
-    'التميّز ما جاك صدفة — جاك لأنك تستاهل',
-    'كل دقيقة تستثمرها بنفسك ترجعلك أضعاف',
-    'الفرق بين العادي والاستثنائي = الجهد الإضافي',
-    'أنت هنا لأنك من أفضل ٣ — فخر للفريق!',
-    'التكرار المتعمد يصنع المحترفين',
-    'الناجح ما يتدرب لين يصح — يتدرب لين ما يغلط',
-  ];
-  return q[Math.floor(Math.random()*q.length)];
-}
-
-window.startGoldenSession=function(){
-  S.data.goldenStart=Date.now();
-  S.data.goldenExDone=0;
-  saveU(S.data);
-  launchGoldenEx();
-};
-
-function launchGoldenEx(){
-  const elapsed=Math.round((Date.now()-(S.data.goldenStart||Date.now()))/1000);
-  const remaining=900-elapsed; // 15 mins = 900 seconds
-  if(remaining<=0){finishGoldenSession();return;}
-  
-  // Pick random exercise
-  const exTypes=['memory','sequence','schulte','stroop','math','raven'];
-  const type=exTypes[Math.floor(Math.random()*exTypes.length)];
-  const ex=EXT.find(e=>e.id===type);
-  
-  $('exSel').style.display='none';$('exAct').style.display='block';
-  S.curEx=type;
-  
-  // Golden header with countdown + motivational quote
-  const quote=getGoldenQuote();
-  const mins=Math.floor(remaining/60);const secs=remaining%60;
-  $('exT').innerHTML=`<span style="color:${C.gld}">🏆</span> ${ex.ic} ${ex.n}`;
-  $('exTm').innerHTML=`⏱️ متبقي: ${mins}:${String(secs).padStart(2,'0')}`;
-  $('exTm').style.background='rgba(253,203,110,0.12)';$('exTm').style.borderColor='rgba(253,203,110,0.3)';
-  
-  // Show quote before exercise
-  $('exA').innerHTML=`<div style="text-align:center;padding:20px">
-    <div style="font-size:40px;margin-bottom:12px">🏆</div>
-    <div style="font-size:16px;color:${C.gld};font-weight:600;line-height:2;max-width:400px;margin:0 auto">"${quote}"</div>
-    <div style="font-size:13px;color:${C.dim};margin-top:12px">التمرين ${(S.data.goldenExDone||0)+1} — متبقي ${mins} دقيقة</div>
-    <button class="btn" onclick="launchGoldenExNow('${type}')" style="max-width:200px;margin:18px auto 0;background:linear-gradient(135deg,${C.gld},#f39c12);font-size:16px;padding:14px">💪 يلا!</button>
-  </div>`;
-  
-  // Update countdown
-  clearInterval(S.goldenTimer);
-  S.goldenTimer=setInterval(()=>{
-    const el=Math.round((Date.now()-(S.data.goldenStart||Date.now()))/1000);
-    const rem=900-el;
-    if(rem<=0){clearInterval(S.goldenTimer);finishGoldenSession();return;}
-    const m=Math.floor(rem/60);const s=rem%60;
-    if($('exTm'))$('exTm').innerHTML=`⏱️ متبقي: ${m}:${String(s).padStart(2,'0')}`;
-  },1000);
-};
-
-window.launchGoldenExNow=function(type){
-  EX={start:Date.now(),correct:0,total:0,step:0};
-  S.goldenMode=true;
-  let sec=0;clearInterval(S.timer);
-  S.timer=setInterval(()=>{sec++;},1000);
-  if(type==='memory')exMemory();else if(type==='sequence')exSequence();else if(type==='schulte')exSchulte();
-  else if(type==='stroop')exStroop();else if(type==='math')exMathS();else if(type==='raven')exRaven();
-};
-
-// Override finishEx to handle golden mode
-const _origFinishEx=finishEx;
-
-function finishGoldenSession(){
-  clearInterval(S.goldenTimer);clearInterval(S.timer);
-  S.goldenMode=false;
-  const totalMins=Math.round((Date.now()-(S.data.goldenStart||Date.now()))/60000);
-  const exDone=S.data.goldenExDone||0;
-  
-  // Save golden session record
-  if(!S.data.goldenHist)S.data.goldenHist=[];
-  S.data.goldenHist.push({date:new Date().toISOString(),mins:totalMins,exercises:exDone});
-  saveU(S.data);
-  
-  $('exAct').style.display='block';$('exSel').style.display='none';
-  $('exT').innerHTML=`<span style="color:${C.gld}">🏆</span> الجلسة الذهبية`;
-  $('exTm').innerHTML='انتهت!';
-  $('exA').innerHTML=`<div style="text-align:center;padding:20px">
-    <div style="font-size:50px;margin-bottom:8px">🏆</div>
-    <div style="font-family:'Readex Pro';font-size:22px;font-weight:800;color:${C.gld};margin-bottom:8px">أحسنت! جلسة ذهبية مكتملة</div>
-    <div style="display:flex;gap:16px;justify-content:center;margin:14px 0;font-size:14px">
-      <span>⏱️ ${totalMins} دقيقة</span>
-      <span>📝 ${exDone} تمرين</span>
-    </div>
-    <div style="padding:14px;background:rgba(253,203,110,0.08);border:1px solid rgba(253,203,110,0.15);border-radius:12px;margin:14px 0;font-size:14px;color:${C.gld};line-height:1.8">
-      ⏰ هالوقت محسوب كبدل خارج دوام<br>شكراً على استثمارك بنفسك!
-    </div>
-    <button class="btn" onclick="rExercises()" style="max-width:200px;margin:14px auto;font-size:15px;padding:13px">← العودة</button>
-  </div>`;
-}
-
-// Weekend training (doesn't affect scores)
-window.startWeekendTraining=function(){
-  const exTypes=['memory','sequence','schulte','stroop','math','raven'];
-  const type=exTypes[Math.floor(Math.random()*exTypes.length)];
-  const ex=EXT.find(e=>e.id===type);
-  S.curEx=type;S.weekendMode=true;
-  $('exSel').style.display='none';$('exAct').style.display='block';
-  $('exT').innerHTML=`<span>🏋️</span> ${ex.ic} ${ex.n} <span style="font-size:11px;color:${C.ac2}">(تدريب)</span>`;
-  EX={start:Date.now(),correct:0,total:0,step:0};
-  let sec=0;clearInterval(S.timer);
-  S.timer=setInterval(()=>{sec++;$('exTm').textContent='⏱️ '+String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');},1000);
-  if(type==='memory')exMemory();else if(type==='sequence')exSequence();else if(type==='schulte')exSchulte();
-  else if(type==='stroop')exStroop();else if(type==='math')exMathS();else if(type==='raven')exRaven();
-};
-
-// ============ EXERCISE INTROS (Dialect-aware) ============
-function getDlIntro(type){
-  const dl=S.data?.dialect||'sa';
-  const g=G?G():'m';
-  const base={
-  memory:{
-    title:'🧩 تطابق الذاكرة',
-    what:{
-      sa:g==='f'?'بتظهر لك بطاقات مقلوبة، كل مرة تقلبين بطاقتين وتدورين على الأزواج المتشابهة.':'بتظهر لك بطاقات مقلوبة، كل مرة تقلب بطاقتين وتدور على الأزواج المتشابهة.',
-      eg:g==='f'?'حتظهرلك كروت مقلوبة، كل مرة بتقلبي اتنين وتدوري على الأزواج المتشابهة.':'حتظهرلك كروت مقلوبة، كل مرة بتقلب اتنين وتدور على الأزواج المتشابهة.',
-      sd:g==='f'?'بتظهر ليك بطاقات مقلوبة، كل مرة بتقلبي بطاقتين وبتدوري على الأزواج المتشابهة.':'بتظهر ليك بطاقات مقلوبة، كل مرة بتقلب بطاقتين وبتدور على الأزواج المتشابهة.',
-    },
-    goal:'تقوية الذاكرة البصرية قصيرة المدى.',
-    benefit:{
-      sa:'في شغلك: تتذكر أرقام وأسماء وتفاصيل بدون ما تنسى.',
-      eg:'في شغلك: حتفتكر أرقام وأسامي وتفاصيل من غير ما تنسى.',
-      sd:'في شغلك: بتتذكر أرقام وأسامي وتفاصيل من غير ما تنسى.',
-    },
-    tips:{
-      sa:[g==='f'?'ركّزي على مكان كل بطاقة':'ركّز على مكان كل بطاقة','ما تقدر ترجع — كل ضغطة محسوبة'],
-      eg:[g==='f'?'ركزي على مكان كل كارت':'ركز على مكان كل كارت','مفيش رجوع — كل ضغطة محسوبة'],
-      sd:[g==='f'?'ركزي على مكان كل بطاقة':'ركز على مكان كل بطاقة','ما في رجوع — كل ضغطة محسوبة'],
-    }
-  },
-  schulte:{
-    title:'🎯 جدول شولتي',
-    what:{
-      sa:g==='f'?'جدول فيه أرقام مبعثرة. اضغطي عليها بالترتيب بأسرع وقت.':'جدول فيه أرقام مبعثرة. اضغط عليها بالترتيب بأسرع وقت.',
-      eg:g==='f'?'جدول فيه أرقام متبعترة. دوسي عليها بالترتيب بأسرع وقت.':'جدول فيه أرقام متبعترة. دوس عليها بالترتيب بأسرع وقت.',
-      sd:g==='f'?'جدول فيهو أرقام مبعثرة. اضغطي عليها بالترتيب بأسرع وقت.':'جدول فيهو أرقام مبعثرة. اضغط عليها بالترتيب بأسرع وقت.',
-    },
-    goal:'تقوية التركيز البصري والانتباه.',
-    benefit:{
-      sa:'في شغلك: سرعة قراءة البيانات والجداول.',
-      eg:'في شغلك: سرعة قراية الداتا والجداول.',
-      sd:'في شغلك: سرعة قراءة البيانات والجداول.',
-    },
-    tips:{
-      sa:[g==='f'?'ثبّتي نظرك في وسط الجدول':'ثبّت نظرك في وسط الجدول','السرعة تجي مع التكرار'],
-      eg:[g==='f'?'ثبّتي نظرك في نص الجدول':'ثبّت نظرك في نص الجدول','السرعة بتيجي مع التكرار'],
-      sd:[g==='f'?'ثبّتي نظرك في نص الجدول':'ثبّت نظرك في نص الجدول','السرعة بتجي مع التكرار'],
-    }
-  }};
-  
-  const ex=base[type];
-  if(!ex)return EX_INTRO_FALLBACK[type]||{};
-  const d=dl==='ar'?'sa':dl; // fallback
-  return{
-    title:ex.title,
-    what:ex.what[d]||ex.what.sa,
-    goal:ex.goal,
-    benefit:ex.benefit[d]||ex.benefit.sa,
-    tips:ex.tips[d]||ex.tips.sa
-  };
-}
-
-const EX_INTRO_FALLBACK={
-  memory:{
-    title:'🧩 تطابق الذاكرة',
-    what:'بتظهر لك بطاقات مقلوبة، كل مرة تقلب بطاقتين وتدور على الأزواج المتشابهة.',
-    goal:'تقوية الذاكرة البصرية قصيرة المدى — تساعدك تتذكر الأشياء بسرعة.',
-    benefit:'في شغلك: تذكر أرقام، أسماء، تفاصيل بدون ما تنسى.',
-    tips:['تبدأ بـ ٨ أزواج وتزيد مع تطورك','ركّز على مكان كل بطاقة','ما تقدر ترجع — كل ضغطة محسوبة']
-  },
-  sequence:{
-    title:'🔢 تسلسل الأرقام',
-    what:'بتظهر لك أرقام لمدة ٥ ثواني، بعدها لازم تعيد كتابتها بنفس الترتيب.',
-    goal:'تقوية الذاكرة العاملة — القدرة على حفظ معلومات مؤقتة واستخدامها.',
-    benefit:'في شغلك: تتذكر أرقام تليفونات، مبالغ، أكواد بدون ما تكتبها.',
-    tips:['تبدأ بـ ٨ أرقام — الوقت ينقص كل ما تطورت!','حاول تقسم الأرقام لمجموعات','ما تقدر تشوفها مرة ثانية!']
-  },
-  schulte:{
-    title:'🎯 جدول شولتي',
-    what:'جدول فيه أرقام من ١ إلى ٢٥ مبعثرة. اضغط عليها بالترتيب من ١ إلى ٢٥ بأسرع وقت.',
-    goal:'تقوية التركيز البصري والانتباه — تدريب عينك ودماغك يشتغلون مع بعض.',
-    benefit:'في شغلك: سرعة قراءة البيانات والجداول والأرقام.',
-    tips:['حاول تثبت نظرك في وسط الجدول','لا تبحث رقم رقم — خلّ عينك تلقطه','السرعة تجي مع التكرار']
-  },
-  stroop:{
-    title:'🌈 اختبار ستروب',
-    what:'بتظهر لك كلمة لون مكتوبة بلون مختلف. مرة المطلوب لون الخط ومرة الكلمة المكتوبة — انتبه للسؤال!',
-    goal:'تقوية مقاومة التشتت — قدرتك تركز على المهم وتتجاهل المشتتات.',
-    benefit:'في شغلك: ما تتشتت بسهولة، تركيزك يكون على الأهم.',
-    tips:['⚠️ السؤال يتغير! مرة لون الخط ومرة الكلمة','🎨 = لون الخط | 📝 = الكلمة المكتوبة','هالتمرين صعب في البداية وهذا طبيعي']
-  },
-  math:{
-    title:'➗ حساب ذهني',
-    what:'عمليات حسابية سريعة (جمع، طرح، ضرب). اختر الإجابة الصحيحة من ٤ خيارات.',
-    goal:'تسريع المعالجة الذهنية — دماغك يحسب أسرع.',
-    benefit:'في شغلك: سرعة في الحسابات والتقديرات بدون آلة حاسبة.',
-    tips:['حاول تحسب في راسك قبل لا تشوف الخيارات','الصعوبة تزيد مع مستواك','١٠ أسئلة بس — ركّز فيها']
-  },
-  raven:{
-    title:'🔷 أنماط ريفن المتقدمة',
-    what:'مصفوفة ٣×٣ فيها أشكال تتبع أنماط منطقية. خانة واحدة فاضية — اكتشف القاعدة واختر الشكل الصحيح.',
-    goal:'تقوية التفكير المنطقي والتحليلي — اختبار ذكاء عالمي يُستخدم للبالغين.',
-    benefit:'في شغلك: حل المشاكل المعقدة وتحليل البيانات واتخاذ قرارات أذكى.',
-    tips:['ادرس الصفوف والأعمدة — وش القاعدة؟','الأنماط تشمل: عدد، حجم، دوران، توزيع، جمع/طرح','الصعوبة تزيد مع تطورك — خذ وقتك وفكّر']
-  },
-  typing:{
-    title:'⌨️ تعلّم الكتابة على الكيبورد',
-    what:'منهج متدرج حرف بحرف — تبدأ بحرفين وتضيف أحرف جديدة كل درس لحد ما تتقن الكيبورد كامل.',
-    goal:'تعلّم الكتابة الصحيحة بدون النظر للكيبورد (Touch Typing) بالعربي والإنجليزي.',
-    benefit:'في شغلك: ترد على الإيميلات والرسائل بسرعة وبدون أخطاء — توفر ساعات كل أسبوع.',
-    tips:['١٠ دروس متدرجة — لازم تجتاز ٧٠% عشان تنتقل للتالي','⚠️ لا تنظر للكيبورد أبداً — أبقِ عينيك على الشاشة','الحرف التالي يظهر لك على الشاشة — ثق بأصابعك']
-  },
-  shortcuts:{
-    title:'🎹 اختصارات الكيبورد',
-    what:'يظهر لك وصف عملية ووين تُستخدم (ويندوز/Excel/المتصفح). اضغط الاختصار الصحيح على الكيبورد مباشرة!',
-    goal:'حفظ اختصارات ويندوز + Excel + المتصفح عن طريق التطبيق العملي.',
-    benefit:'في شغلك: توفر وقت كبير كل يوم — بدل الماوس، اختصار وخلاص.',
-    tips:['الإجابة بالضغط على الكيبورد مباشرة — مو اختيارات!','انتبه لمكان الاستخدام (ويندوز/Excel/متصفح)','لو غلطت بيوريك الإجابة الصحيحة — تعلّم منها']
-  }
-};
-
-window.startEx=function(type){
-  S.curEx=type;
-  const info=getDlIntro(type)||EX_INTRO_FALLBACK[type];
-  if(!info||!info.what){launchEx(type);return;}
-  $('exSel').style.display='none';$('exAct').style.display='block';
-  $('exT').textContent=info.title;
-  $('exA').innerHTML=`<div style="text-align:right;width:100%;max-width:550px;padding:10px">
-    <div style="font-size:17px;line-height:2;margin-bottom:16px">
-      <div style="font-weight:700;color:${C.ac};font-size:15px;margin-bottom:6px">📝 وش التمرين؟</div>
-      <div style="font-size:16px">${info.what}</div>
-    </div>
-    <div style="font-size:17px;line-height:2;margin-bottom:16px">
-      <div style="font-weight:700;color:${C.ac2};font-size:15px;margin-bottom:6px">🎯 وش الهدف؟</div>
-      <div style="font-size:16px">${info.goal}</div>
-    </div>
-    <div style="font-size:17px;line-height:2;margin-bottom:16px">
-      <div style="font-weight:700;color:${C.gld};font-size:15px;margin-bottom:6px">💼 وش الفائدة في شغلك؟</div>
-      <div style="font-size:16px">${info.benefit}</div>
-    </div>
-    <div style="background:rgba(255,118,117,0.06);border:1px solid rgba(255,118,117,0.15);border-radius:12px;padding:16px;margin-bottom:18px">
-      <div style="font-weight:700;color:${C.dng};font-size:15px;margin-bottom:8px">⚠️ انتبه قبل لا تبدأ:</div>
-      ${info.tips.map(t=>`<div style="font-size:15px;padding:4px 0;color:#E8ECF1">• ${t}</div>`).join('')}
-    </div>
-    <button class="btn" onclick="launchEx('${type}')" style="font-size:18px;padding:16px">💪 جاهز — ابدأ التمرين!</button>
-    <div onclick="rExercises()" style="text-align:center;margin-top:10px;font-size:14px;color:${C.dim};cursor:pointer">← رجوع للقائمة</div>
-  </div>`;
-};
-
-function launchEx(type){
-  EX._rng=null; // Reset RNG for fresh seed per exercise
-  const ex=EXT.find(e=>e.id===type);
-  $('exT').textContent=ex.ic+' '+ex.n;
-  EX={start:Date.now(),correct:0,total:0,step:0};
-  let sec=0;clearInterval(S.timer);
-  S.timer=setInterval(()=>{sec++;$('exTm').textContent='⏱️ '+String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');},1000);
-  if(type==='memory')exMemory();else if(type==='sequence')exSequence();else if(type==='schulte')exSchulte();
-  else if(type==='stroop')exStroop();else if(type==='math')exMathS();else if(type==='raven')exRaven();
-  else if(type==='typing')exTyping();else if(type==='shortcuts')exShortcuts();
-}
-
-function finishEx(){
-  clearInterval(S.timer);const dur=Math.round((Date.now()-EX.start)/1000);
-  const score=EX.total>0?Math.round((EX.correct/EX.total)*100):0;
-  
-  // Golden mode: don't save to todayEx, just count and continue
-  if(S.goldenMode){
-    S.data.goldenExDone=(S.data.goldenExDone||0)+1;
-    // Save to hist but marked as golden
-    S.data.hist.push({type:S.curEx,score,duration:dur,correct:EX.correct,total:EX.total,date:new Date().toISOString(),golden:true});
-    saveU(S.data);
-    $('exP').style.width=score+'%';
-    $('exA').innerHTML=`<div style="text-align:center;padding:20px">
-      <div style="font-size:16px;color:${C.gld}">🏆 التمرين ${S.data.goldenExDone}</div>
-      <div style="font-family:'Readex Pro';font-size:60px;font-weight:800;color:${C.gld};margin:8px 0">${score}%</div>
-      <p style="color:${C.dim};font-size:14px">✅ ${EX.correct}/${EX.total} | ⏱️ ${dur} ثانية</p>
-      ${score>=80?`<p style="color:${C.gld};font-size:16px;font-weight:600;margin-top:8px">🔥 أداء ذهبي!</p>`:`<p style="color:${C.ac};font-size:16px;font-weight:600;margin-top:8px">👍 استمر!</p>`}
-      <button class="btn" onclick="launchGoldenEx()" style="max-width:200px;margin:16px auto;background:linear-gradient(135deg,${C.gld},#f39c12);font-size:15px;padding:13px">التمرين التالي 🏆</button>
-    </div>`;
-    return;
-  }
-  
-  // Weekend mode: save to hist but marked, don't count in todayEx
-  if(S.weekendMode){
-    S.data.hist.push({type:S.curEx,score,duration:dur,correct:EX.correct,total:EX.total,date:new Date().toISOString(),weekend:true});
-    S.data.weekendMins=(S.data.weekendMins||0)+Math.round(dur/60);
-    saveU(S.data);S.weekendMode=false;
-    $('exP').style.width=score+'%';
-    $('exA').innerHTML=`<div style="text-align:center;padding:20px">
-      <div style="font-size:16px;color:${C.ac2}">🏋️ تدريب الويكند</div>
-      <div style="font-family:'Readex Pro';font-size:60px;font-weight:800;background:linear-gradient(135deg,${C.ac2},#a29bfe);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin:8px 0">${score}%</div>
-      <p style="color:${C.dim};font-size:14px">✅ ${EX.correct}/${EX.total} | ⏱️ ${dur} ثانية</p>
-      <div style="padding:10px;background:rgba(108,92,231,0.06);border-radius:8px;margin-top:10px;font-size:13px;color:${C.ac2}">هالنتيجة للتدريب فقط — ما تأثر على ترتيبك</div>
-      <div style="display:flex;gap:10px;justify-content:center;margin-top:14px">
-        <button class="btn" onclick="startWeekendTraining()" style="max-width:180px;font-size:14px;padding:12px;background:linear-gradient(135deg,${C.ac2},#a29bfe)">🏋️ تمرين ثاني</button>
-        <button onclick="rExercises()" style="padding:12px 20px;background:rgba(255,255,255,0.05);border:1px solid ${C.gb};border-radius:10px;color:${C.dim};font-family:'Tajawal';font-size:14px;cursor:pointer">← العودة</button>
-      </div>
-    </div>`;
-    return;
-  }
-  
-  // Normal mode
-  S.data.todayEx[S.curEx]={type:S.curEx,score,duration:dur,correct:EX.correct,total:EX.total,date:new Date().toISOString()};
-  S.data.hist.push(S.data.todayEx[S.curEx]);saveU(S.data);
-  
-  // Find next undone exercise in sequence
-  const exOrder=['memory','sequence','schulte','stroop','math','raven','typing','shortcuts'];
-  const curIdx=exOrder.indexOf(S.curEx);
-  let nextEx=null;
-  for(let i=curIdx+1;i<exOrder.length;i++){
-    if(!S.data.todayEx[exOrder[i]]){nextEx=exOrder[i];break;}
-  }
-  const doneCnt=Object.keys(S.data.todayEx).length;
-  const totalEx=8;
-  const overallPct=Math.round((doneCnt/totalEx)*100);
-  
-  $('exP').style.width=(score)+'%';
-  $('exA').innerHTML=`<div style="text-align:center;padding:24px"><div style="font-size:16px;color:${C.dim}">نتيجة التمرين</div><div style="font-family:'Readex Pro';font-size:64px;font-weight:800;background:linear-gradient(135deg,${C.ac},${C.ac2});-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin:8px 0">${score}%</div>
-    <p style="color:${C.dim};font-size:15px">✅ ${EX.correct}/${EX.total} إجابة صحيحة | ⏱️ ${dur} ثانية</p>
-    ${score>=80?`<p style="color:${C.ac};margin-top:10px;font-size:17px;font-weight:600">🎉 ممتاز! أداء رائع</p>`:score>=50?`<p style="color:${C.gld};margin-top:10px;font-size:17px;font-weight:600">👍 جيد! كمّل وبتتحسن</p>`:`<p style="color:${C.dng};margin-top:10px;font-size:17px;font-weight:600">💪 لا تقلق — التكرار يصنع الفرق</p>`}
-    <div style="margin-top:14px;padding:12px;background:rgba(255,255,255,0.03);border:1px solid ${C.gb};border-radius:10px">
-      <div style="font-size:13px;color:${C.dim};margin-bottom:6px">إنجاز اليوم: ${doneCnt}/${totalEx} تمارين</div>
-      <div style="width:100%;height:6px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden"><div style="height:100%;width:${overallPct}%;background:linear-gradient(90deg,${C.ac},${C.ac2});border-radius:3px;transition:width 0.5s"></div></div>
-    </div>
-    ${nextEx?`<button class="btn" onclick="startEx('${nextEx}')" style="max-width:280px;margin:18px auto 0;display:block;font-size:16px;padding:14px">التمرين التالي: ${EXT.find(e=>e.id===nextEx).ic} ${EXT.find(e=>e.id===nextEx).n} ←</button>`:`<button class="btn" onclick="rExercises()" style="max-width:220px;margin:18px auto 0;display:block;font-size:16px;padding:14px">🎉 أكملت كل التمارين!</button>`}
-    <div onclick="rExercises()" style="text-align:center;margin-top:10px;font-size:13px;color:${C.dim};cursor:pointer">← العودة لقائمة التمارين</div></div>`;
-}
-
-// ============ ADAPTIVE DIFFICULTY ============
-// Per-skill level based on recent performance (last 5 attempts)
-function getSkillLv(type){
-  const h=S.data.hist.filter(x=>x.type===type).slice(-5);
-  if(h.length===0)return 2; // Start at level 2 (not 1 = children)
-  const avg=Math.round(h.reduce((a,b)=>a+b.score,0)/h.length);
-  if(avg>=85&&h.length>=4)return 5;
-  if(avg>=70&&h.length>=3)return 4;
-  if(avg>=55&&h.length>=2)return 3;
-  if(avg>=40)return 2;
-  return 2; // Never go below 2
-}
-
-// --- Memory --- (Start at 8 pairs, grow to 12)
-function exMemory(){const em=['🌟','🌙','🔥','💎','🦁','🌸','🎵','⚡','🌍','🎯','🍀','🔑'];const lv=getSkillLv('memory');const p=[8,9,10,11,12][lv-1];const cols=p<=8?4:p<=10?5:6;const cards=empShuf([...em.slice(0,p),...em.slice(0,p)]);EX.total=p;EX.cards=cards;EX.fl=[];EX.mt=new Set();
-  $('exA').innerHTML=`<div style="font-size:16px;color:${C.dim};text-align:center;margin-bottom:6px">ابحث عن الأزواج المتطابقة</div><div style="font-size:13px;color:${C.ac2};text-align:center;margin-bottom:12px">المستوى ${lv} — ${p} أزواج</div><div style="display:grid;grid-template-columns:repeat(${cols},62px);gap:6px;direction:ltr">${cards.map((_,i)=>`<div class="mc" onclick="mF(${i})" style="width:62px;height:62px;background:rgba(255,255,255,0.04);border:2px solid rgba(255,255,255,0.08);border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:24px;cursor:pointer;transition:all 0.3s">❓</div>`).join('')}</div>`;}
-window.mF=function(i){if(EX.fl.length>=2||EX.mt.has(i)||EX.fl.includes(i))return;const c=document.querySelectorAll('.mc');c[i].textContent=EX.cards[i];c[i].style.background='rgba(0,229,184,0.1)';c[i].style.borderColor=C.ac;EX.fl.push(i);
-  if(EX.fl.length===2){const[a,b]=EX.fl;if(EX.cards[a]===EX.cards[b]){EX.mt.add(a);EX.mt.add(b);EX.correct++;c[a].style.background='rgba(0,229,184,0.2)';c[b].style.background='rgba(0,229,184,0.2)';EX.fl=[];$('exP').style.width=(EX.correct/EX.total*100)+'%';if(EX.correct===EX.total)setTimeout(finishEx,400);}
-    else setTimeout(()=>{c[a].textContent='❓';c[b].textContent='❓';[a,b].forEach(x=>{c[x].style.background='rgba(255,255,255,0.04)';c[x].style.borderColor='rgba(255,255,255,0.08)';});EX.fl=[];},700);}};
-
-// --- Sequence --- (Start 8 digits/5s, grow digits, shrink time to 3s)
-function exSequence(){const lv=getSkillLv('sequence');const len=[8,9,10,11,12][lv-1];const showMs=[5000,4500,4000,3500,3000][lv-1];const seq=Array.from({length:len},()=>Math.floor(empRand()*9)+1);EX.total=1;EX.seq=seq;
-  const showSec=(showMs/1000).toFixed(1);
-  $('exA').innerHTML=`<div style="font-size:16px;color:${C.dim};text-align:center;margin-bottom:6px">احفظ التسلسل</div><div style="font-size:13px;color:${C.ac2};text-align:center;margin-bottom:12px">المستوى ${lv} — ${len} أرقام في ${showSec} ثانية</div><div style="font-family:'Readex Pro';font-size:32px;letter-spacing:10px;text-align:center;direction:ltr">${seq.join('  ')}</div><div style="width:100%;height:4px;background:rgba(255,255,255,0.05);border-radius:2px;margin-top:14px;overflow:hidden"><div id="seqBar" style="height:100%;width:100%;background:${C.gld};border-radius:2px;transition:width ${showMs}ms linear"></div></div>`;
-  setTimeout(()=>{if($('seqBar'))$('seqBar').style.width='0%';},50);
-  setTimeout(()=>{$('exA').innerHTML=`<div style="font-size:16px;color:${C.dim};text-align:center;margin-bottom:14px">أعد كتابة التسلسل</div><div style="display:flex;gap:6px;justify-content:center;direction:ltr;flex-wrap:wrap" id="sI">${Array.from({length:len},()=>`<input class="inp" type="text" maxlength="1" inputmode="numeric" style="width:44px;height:50px;text-align:center;font-family:'Readex Pro';font-size:20px;padding:0">`).join('')}</div><button class="btn" onclick="sChk()" style="max-width:180px;margin:16px auto 0;display:block;font-size:15px;padding:12px">✅ تحقق</button>`;document.querySelector('#sI input')?.focus();const ins=document.querySelectorAll('#sI input');ins.forEach((el,idx)=>el.addEventListener('keyup',e=>{if(e.key>='0'&&e.key<='9'&&idx<ins.length-1)ins[idx+1].focus();}));},showMs);}
-window.sChk=function(){const ins=document.querySelectorAll('#sI input');let ok=true;Array.from(ins).forEach((el,i)=>{if(parseInt(el.value)===EX.seq[i]){el.style.borderColor=C.ac;el.style.background='rgba(0,229,184,0.12)';}else{el.style.borderColor=C.dng;el.style.background='rgba(255,118,117,0.12)';ok=false;}});EX.correct=ok?1:0;setTimeout(finishEx,800);};
-
-// --- Schulte ---
-function exSchulte(){const lv=getSkillLv('schulte');const grid=[16,25,25,36,36][lv-1];const cols=[4,5,5,6,6][lv-1];const reverse=lv>=4;const nums=empShuf(Array.from({length:grid},(_,i)=>i+1));EX.total=grid;EX.correct=0;EX.next=reverse?grid:1;EX.reverse=reverse;
-  const sz=grid<=9?70:grid<=16?62:grid<=25?56:48;
-  $('exA').innerHTML=`<div style="font-size:16px;color:${C.dim};text-align:center;margin-bottom:6px">${reverse?`اضغط ${grid} إلى 1 بالعكس`:`اضغط 1 إلى ${grid} بالترتيب`}</div><div style="font-size:13px;color:${C.ac2};text-align:center;margin-bottom:10px">المستوى ${lv} — جدول ${cols}×${cols}</div><div style="text-align:center;margin-bottom:8px;color:${C.gld};font-weight:700;font-size:18px">التالي: <span id="sN">${EX.next}</span></div>
-  <div style="display:grid;grid-template-columns:repeat(${cols},${sz}px);gap:5px;direction:ltr">${nums.map(n=>`<div class="sc" onclick="scC(${n},this)" style="width:${sz}px;height:${sz}px;background:rgba(255,255,255,0.04);border:2px solid rgba(255,255,255,0.08);border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:'Readex Pro';font-size:${grid<=16?18:15}px;font-weight:600;cursor:pointer;transition:all 0.2s">${n}</div>`).join('')}</div>`;}
-window.scC=function(n,el){if(n===EX.next){el.style.background='rgba(0,229,184,0.15)';el.style.borderColor=C.ac;el.style.color=C.ac;el.style.pointerEvents='none';EX.correct++;EX.next+=EX.reverse?-1:1;$('sN').textContent=EX.next;$('exP').style.width=(EX.correct/EX.total*100)+'%';if(EX.correct===EX.total)setTimeout(finishEx,300);}else{el.style.borderColor=C.dng;setTimeout(()=>el.style.borderColor='rgba(255,255,255,0.08)',300);}};
-
-// --- Stroop --- (Alternates: "لون الخط" vs "الكلمة المكتوبة")
-function exStroop(){const allCl=[{n:'أحمر',h:'#FF6B6B'},{n:'أزرق',h:'#74b9ff'},{n:'أخضر',h:'#00E5B8'},{n:'أصفر',h:'#FDCB6E'},{n:'بنفسجي',h:'#a29bfe'},{n:'برتقالي',h:'#e17055'}];const lv=getSkillLv('stroop');const nColors=[4,4,5,6,6][lv-1];EX.cl=allCl.slice(0,nColors);EX.total=[8,10,12,14,16][lv-1];EX.correct=0;EX.step=0;stQ();}
-function stQ(){if(EX.step>=EX.total){finishEx();return;}const c=EX.cl;
-  // Random question type with streaks allowed (not alternating)
-  if(!EX.stMode)EX.stMode=[];
-  if(EX.stMode.length===0){
-    // Generate a shuffled random sequence for the whole exercise
-    const half=Math.ceil(EX.total/2);
-    const modes=[...Array(half).fill(true),...Array(EX.total-half).fill(false)];
-    EX.stMode=shuf(modes);
-  }
-  const askInk=EX.stMode[EX.step];
-  const word=c[Math.floor(Math.random()*c.length)];let ink;do{ink=c[Math.floor(Math.random()*c.length)];}while(ink.n===word.n);
-  EX.stA=askInk?ink.n:word.n;
-  const qLabel=askInk?'🎨 ما <b>لون الخط</b>؟':'📝 ما <b>الكلمة المكتوبة</b>؟';
-  const qColor=askInk?'rgba(0,229,184,0.15)':'rgba(108,92,231,0.15)';
-  $('exA').innerHTML=`<div style="padding:8px 16px;border-radius:8px;background:${qColor};display:inline-block;font-size:16px;margin-bottom:10px">${qLabel} <span style="font-size:13px;color:${C.dim}">(${EX.step+1}/${EX.total})</span></div>
-  <div style="font-family:'Readex Pro';font-size:56px;font-weight:800;text-align:center;margin:10px 0 22px;color:${ink.h}">${word.n}</div>
-  <div style="display:grid;grid-template-columns:repeat(${c.length<=4?2:3},1fr);gap:9px;max-width:500px;width:100%">${[...c].sort(()=>Math.random()-0.5).map(o=>`<div class="ob" onclick="stA('${o.n}',this)" style="padding:16px;background:rgba(255,255,255,0.03);border:2px solid rgba(255,255,255,0.06);border-radius:12px;text-align:center;font-size:18px;font-weight:600;cursor:pointer;transition:all 0.3s">${o.n}</div>`).join('')}</div>`;$('exP').style.width=(EX.step/EX.total*100)+'%';}
-window.stA=function(a,el){document.querySelectorAll('.ob').forEach(b=>b.style.pointerEvents='none');if(a===EX.stA){el.style.borderColor=C.ac;el.style.background='rgba(0,229,184,0.12)';EX.correct++;}else{el.style.borderColor=C.dng;el.style.background='rgba(255,118,117,0.12)';document.querySelectorAll('.ob').forEach(b=>{if(b.textContent===EX.stA){b.style.borderColor=C.ac;b.style.background='rgba(0,229,184,0.12)';}});}EX.step++;setTimeout(stQ,700);};
-
-// --- Math --- (Mixed ops from start, close answers ±1~3)
-function exMathS(){EX.total=10;EX.correct=0;EX.step=0;EX.fracCount=0;mQ();}
-function mQ(){if(EX.step>=10){finishEx();return;}const lv=getSkillLv('math');let a,b,op,ans,display;
-  
-  // Add fraction questions at level 3+ (2-3 per exercise)
-  const doFraction=lv>=3&&EX.fracCount<3&&empRand()>0.5;
-  
-  if(doFraction){
-    EX.fracCount++;
-    const fracOps=['+','-','×'];
-    op=fracOps[Math.floor(empRand()*fracOps.length)];
-    // Simple fractions with common denominators
-    const denoms=[2,3,4,5,6,8];
-    const d1=denoms[Math.floor(empRand()*denoms.length)];
-    const n1=Math.floor(empRand()*(d1-1))+1;
-    const d2=lv>=4?denoms[Math.floor(empRand()*denoms.length)]:d1;
-    const n2=Math.floor(empRand()*(d2-1))+1;
-    
-    if(op==='+'){ans=Math.round(((n1/d1)+(n2/d2))*100)/100;}
-    else if(op==='-'){
-      if(n1/d1<n2/d2){ans=Math.round(((n2/d2)-(n1/d1))*100)/100;display=`<sup>${n2}</sup>⁄<sub>${d2}</sub> − <sup>${n1}</sup>⁄<sub>${d1}</sub>`;}
-      else{ans=Math.round(((n1/d1)-(n2/d2))*100)/100;}
-    }
-    else{ans=Math.round(((n1/d1)*(n2/d2))*100)/100;}
-    
-    if(!display)display=`<sup>${n1}</sup>⁄<sub>${d1}</sub> ${op==='×'?'×':op} <sup>${n2}</sup>⁄<sub>${d2}</sub>`;
-    EX.mA=ans;
-    
-    const opts=new Set([ans]);
-    const offsets=[-0.5,-0.25,-0.1,0.1,0.25,0.5].sort(()=>empRand()-0.5);
-    for(const off of offsets){if(opts.size>=4)break;const w=Math.round((ans+off)*100)/100;if(w>=0&&w!==ans)opts.add(w);}
-    while(opts.size<4){opts.add(Math.round((ans+empRand()*2)*100)/100);}
-    
-    $('exA').innerHTML=`<div style="font-size:16px;color:${C.dim};text-align:center">(${EX.step+1}/10) <span style="font-size:12px;color:${C.ac2}">مستوى ${lv}</span> <span style="font-size:11px;color:${C.gld}">كسور</span></div><div style="font-family:'Readex Pro';font-size:36px;font-weight:600;text-align:center;margin:14px 0 22px;direction:ltr">${display} = ?</div>
-    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;max-width:440px;width:100%">${[...opts].sort(()=>empRand()-0.5).map(n=>`<div class="ob" onclick="mA(${n},this)" style="padding:18px;background:rgba(255,255,255,0.03);border:2px solid rgba(255,255,255,0.06);border-radius:12px;text-align:center;font-size:22px;font-weight:600;cursor:pointer;transition:all 0.3s">${n}</div>`).join('')}</div>`;$('exP').style.width=(EX.step/10*100)+'%';
-    return;
-  }
-  
-  const ops=lv>=2?['+','-','×','÷']:['+','-','×'];
-  op=ops[Math.floor(empRand()*ops.length)];
-  if(op==='÷'){b=Math.floor(empRand()*(lv*4))+2;a=b*(Math.floor(empRand()*(lv*5))+2);}
-  else if(op==='×'){a=Math.floor(empRand()*(lv*6))+3;b=Math.floor(empRand()*(lv*5))+2;}
-  else{const mx=[50,80,120,200,350][lv-1];a=Math.floor(empRand()*mx)+10;b=Math.floor(empRand()*Math.floor(mx*0.7))+5;}
-  if(op==='-'&&b>a)[a,b]=[b,a];
-  ans=op==='+'?a+b:op==='-'?a-b:op==='×'?a*b:Math.round(a/b);EX.mA=ans;
-  // Close wrong answers (±1, ±2, ±3)
-  const opts=new Set([ans]);
-  const offsets=[-3,-2,-1,1,2,3].sort(()=>Math.random()-0.5);
-  for(const off of offsets){if(opts.size>=4)break;const w=ans+off;if(w>=0&&w!==ans)opts.add(w);}
-  while(opts.size<4){opts.add(ans+Math.floor(Math.random()*10)+4);}
-  $('exA').innerHTML=`<div style="font-size:16px;color:${C.dim};text-align:center">(${EX.step+1}/10) <span style="font-size:12px;color:${C.ac2}">مستوى ${lv}</span></div><div style="font-family:'Readex Pro';font-size:42px;font-weight:600;text-align:center;margin:14px 0 22px;direction:ltr">${a} ${op} ${b} = ?</div>
-  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;max-width:440px;width:100%">${[...opts].sort(()=>Math.random()-0.5).map(n=>`<div class="ob" onclick="mA(${n},this)" style="padding:18px;background:rgba(255,255,255,0.03);border:2px solid rgba(255,255,255,0.06);border-radius:12px;text-align:center;font-size:22px;font-weight:600;cursor:pointer;transition:all 0.3s">${n}</div>`).join('')}</div>`;$('exP').style.width=(EX.step/10*100)+'%';}
-window.mA=function(a,el){document.querySelectorAll('.ob').forEach(b=>b.style.pointerEvents='none');if(a===EX.mA){el.style.borderColor=C.ac;el.style.background='rgba(0,229,184,0.12)';EX.correct++;}else{el.style.borderColor=C.dng;el.style.background='rgba(255,118,117,0.12)';document.querySelectorAll('.ob').forEach(b=>{if(parseInt(b.textContent)===EX.mA){b.style.borderColor=C.ac;b.style.background='rgba(0,229,184,0.12)';}});}EX.step++;setTimeout(mQ,500);};
-
-// --- Raven --- (Professional Progressive Matrices)
-function exRaven(){const lv=getSkillLv('raven');EX.total=[6,7,8,9,10][lv-1];EX.correct=0;EX.step=0;rQ();}
-
-// SVG drawing engine for shapes
-function rvSVG(cell,sz){
-  if(!cell)return'';const s=sz||70;const h=s/2;
-  let svg=`<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg">`;
-  (cell.items||[]).forEach(it=>{
-    const cx=it.x!==undefined?it.x*s:h;const cy=it.y!==undefined?it.y*s:h;
-    const r=(it.size||0.35)*s*0.5;const fill=it.fill||'#8899aa';const stroke=it.stroke||'none';const sw=it.sw||2;const rot=it.rot||0;
-    const op=it.opacity||0.9;
-    if(it.shape==='circle')svg+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" opacity="${op}"/>`;
-    else if(it.shape==='rect'){const g=`translate(${cx},${cy}) rotate(${rot})`;svg+=`<rect x="${-r}" y="${-r}" width="${r*2}" height="${r*2}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" opacity="${op}" transform="${g}" rx="2"/>`;}
-    else if(it.shape==='triangle'){const g=`translate(${cx},${cy}) rotate(${rot})`;svg+=`<polygon points="0,${-r} ${r},${r} ${-r},${r}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" opacity="${op}" transform="${g}"/>`;}
-    else if(it.shape==='diamond'){const g=`translate(${cx},${cy}) rotate(${rot})`;svg+=`<polygon points="0,${-r} ${r},0 0,${r} ${-r},0" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" opacity="${op}" transform="${g}"/>`;}
-    else if(it.shape==='cross'){const t=r*0.3;const g=`translate(${cx},${cy}) rotate(${rot})`;svg+=`<rect x="${-r}" y="${-t}" width="${r*2}" height="${t*2}" fill="${fill}" opacity="${op}" transform="${g}"/><rect x="${-t}" y="${-r}" width="${t*2}" height="${r*2}" fill="${fill}" opacity="${op}" transform="${g}"/>`;}
-    else if(it.shape==='line'){const len=r;const g=`translate(${cx},${cy}) rotate(${rot})`;svg+=`<line x1="${-len}" y1="0" x2="${len}" y2="0" stroke="${fill}" stroke-width="${sw+1}" opacity="${op}" transform="${g}"/>`;}
-    else if(it.shape==='dots'){const n=it.count||3;for(let i=0;i<n;i++){const a=(i/n)*Math.PI*2-Math.PI/2;const dx=cx+Math.cos(a)*r*0.7;const dy=cy+Math.sin(a)*r*0.7;svg+=`<circle cx="${dx}" cy="${dy}" r="${s*0.04}" fill="${fill}" opacity="${op}"/>`;}}
-  });
-  return svg+'</svg>';
-}
-
-// Generate a Raven question based on rule type
-function genRaven(lv){
-  const colors=['#74b9ff','#ff7675','#00E5B8','#a29bfe','#FDCB6E','#e17055'];
-  const shapes=['circle','rect','triangle','diamond','cross'];
-  
-  // Pick rule type based on level — harder rules from start
-  const ruleTypes=lv<=2?['rotation','distribute3','countProgression','dualAttribute']:lv<=3?['distribute3','addSubtract','dualAttribute','xorPattern']:lv<=4?['addSubtract','dualAttribute','xorPattern','distribute3']:['xorPattern','addSubtract','dualAttribute','distribute3'];
-  const rule=ruleTypes[Math.floor(Math.random()*ruleTypes.length)];
-  
-  const matrix=[];let answer;
-  const sh=empShuf(shapes);const co=empShuf(colors);
-  
-  if(rule==='countProgression'){
-    // Count increases + color changes per row
-    const baseShape=sh[0];const rowFills=[co[0],co[1],co[2]];
-    const rowSizes=[0.22,0.2,0.18]; // smaller as count grows
-    for(let r=0;r<3;r++){for(let c=0;c<3;c++){
-      const count=c+1;const items=[];
-      for(let i=0;i<count;i++){
-        const x=count===1?0.5:count===2?(i===0?0.33:0.67):(i===0?0.22:i===1?0.5:0.78);
-        items.push({shape:sh[r],x,y:0.5,size:rowSizes[c],fill:rowFills[r]});
-      }
-      if(r===2&&c===2){answer={items};matrix.push(null);}
-      else matrix.push({items});
-    }}
-  }else if(rule==='dualAttribute'){
-    // Two attributes change: shape changes per row, color changes per column
-    const rowShapes=[sh[0],sh[1],sh[2]];const colFills=[co[0],co[1],co[2]];
-    const sizes=[0.25,0.3,0.35]; // size increases diagonally
-    for(let r=0;r<3;r++){for(let c=0;c<3;c++){
-      const items=[{shape:rowShapes[r],x:0.5,y:0.5,size:sizes[(r+c)%3],fill:colFills[c],rot:r*30}];
-      if(r===2&&c===2){answer={items};matrix.push(null);}
-      else matrix.push({items});
-    }}
-  }else if(rule==='xorPattern'){
-    // Row 3 = elements in row1 XOR row2 (present in one but not both)
-    const s=[sh[0],sh[1],sh[2]];const f=[co[0],co[1],co[2]];
-    // Row 0: shape 0+1, Row 1: shape 1+2, Row 2: shape 0+2 (XOR)
-    const rowItems=[[0,1],[1,2],[0,2]];
-    for(let r=0;r<3;r++){for(let c=0;c<3;c++){
-      const items=rowItems[r].map((si,i)=>({shape:s[si],x:i===0?0.33:0.67,y:0.5,size:0.2+(c*0.04),fill:f[(si+c)%3]}));
-      if(r===2&&c===2){answer={items};matrix.push(null);}
-      else matrix.push({items});
-    }}
-  }else if(rule==='sizeProgression'){
-    // Size grows: small,medium,large across each row
-    const sizes=[0.18,0.28,0.38];const rowShapes=[sh[0],sh[1],sh[2]];
-    for(let r=0;r<3;r++){for(let c=0;c<3;c++){
-      const items=[{shape:rowShapes[r],x:0.5,y:0.5,size:sizes[c],fill:co[r]}];
-      if(r===2&&c===2){answer={items};matrix.push(null);}
-      else matrix.push({items});
-    }}
-  }else if(rule==='rotation'){
-    // Shape rotates 45° across columns
-    const rots=[0,45,90];const rowShapes=[sh[0],sh[1],sh[2]];
-    for(let r=0;r<3;r++){for(let c=0;c<3;c++){
-      const items=[{shape:rowShapes[r],x:0.5,y:0.5,size:0.32,fill:co[r],rot:rots[c]}];
-      if(r===2&&c===2){answer={items};matrix.push(null);}
-      else matrix.push({items});
-    }}
-  }else if(rule==='distribute3'){
-    // Each row has 3 different shapes AND 3 different colors
-    const perms=[[0,1,2],[1,2,0],[2,0,1]];
-    for(let r=0;r<3;r++){for(let c=0;c<3;c++){
-      const si=perms[r][c];const ci=(r+c)%3;
-      const items=[{shape:sh[si],x:0.5,y:0.5,size:0.3,fill:co[ci]}];
-      if(r===2&&c===2){answer={items};matrix.push(null);}
-      else matrix.push({items});
-    }}
-  }else{
-    // addSubtract: row3 = row1 + row2 (overlay items)
-    const s1=sh[0],s2=sh[1];const f1=co[0],f2=co[1];
-    for(let r=0;r<3;r++){
-      const items=[];
-      if(r===0||r===2)items.push({shape:s1,x:0.35,y:0.5,size:0.22,fill:f1});
-      if(r===1||r===2)items.push({shape:s2,x:0.65,y:0.5,size:0.22,fill:f2});
-      for(let c=0;c<3;c++){
-        const citems=items.map(it=>({...it,size:it.size+(c*0.04)}));
-        if(r===2&&c===2){answer={items:citems};matrix.push(null);}
-        else matrix.push({items:citems});
-      }
-    }
-  }
-  
-  // Generate wrong answers
-  const wrongs=[];
-  for(let w=0;w<5;w++){
-    const items=answer.items.map(it=>{
-      const mods=[
-        {...it,fill:co[(co.indexOf(it.fill)+w+1)%co.length]},
-        {...it,shape:sh[(sh.indexOf(it.shape)+w+1)%sh.length]},
-        {...it,size:it.size*(w%2===0?0.6:1.4)},
-        {...it,rot:(it.rot||0)+90},
-      ];
-      return mods[w%mods.length];
-    });
-    wrongs.push({items});
-  }
-  
-  const optCount=lv<=2?4:lv<=3?5:6;
-  const opts=shuf([answer,...wrongs.slice(0,optCount-1)]);
-  return{matrix,answer,opts,ansIdx:opts.indexOf(answer),rule};
-}
-
-function rQ(){
-  if(EX.step>=EX.total){finishEx();return;}
-  const lv=getSkillLv('raven');
-  const q=genRaven(lv);EX.rA=q.ansIdx;
-  const sz=80;const optSz=68;const optCols=q.opts.length<=4?4:3;
-  
-  $('exA').innerHTML=`<div style="font-size:15px;color:${C.dim};text-align:center;margin-bottom:4px">أكمل المصفوفة (${EX.step+1}/${EX.total})</div>
-  <div style="font-size:12px;color:${C.ac2};text-align:center;margin-bottom:10px">المستوى ${lv}</div>
-  <div style="display:grid;grid-template-columns:repeat(3,${sz}px);gap:2px;background:rgba(255,255,255,0.04);border-radius:12px;padding:8px;direction:ltr;margin:0 auto;border:1px solid rgba(255,255,255,0.06)">${q.matrix.map(c=>c?`<div style="width:${sz}px;height:${sz}px;background:rgba(255,255,255,0.06);border-radius:6px;display:flex;align-items:center;justify-content:center">${rvSVG(c,sz-10)}</div>`:`<div style="width:${sz}px;height:${sz}px;background:rgba(253,203,110,0.08);border:2px dashed rgba(253,203,110,0.25);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:24px;color:${C.gld}">❓</div>`).join('')}</div>
-  <div style="display:grid;grid-template-columns:repeat(${optCols},1fr);gap:6px;max-width:${optCols*76}px;margin:14px auto;direction:ltr">${q.opts.map((o,i)=>`<div class="rv" onclick="rA(${i},this)" style="width:${optSz}px;height:${optSz}px;background:rgba(255,255,255,0.03);border:2px solid rgba(255,255,255,0.08);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.3s;margin:0 auto">${rvSVG(o,optSz-12)}</div>`).join('')}</div>`;
-  $('exP').style.width=(EX.step/EX.total*100)+'%';
-}
-window.rA=function(c,el){document.querySelectorAll('.rv').forEach(o=>o.style.pointerEvents='none');if(c===EX.rA){el.style.borderColor=C.ac;el.style.background='rgba(0,229,184,0.1)';EX.correct++;}else{el.style.borderColor=C.dng;el.style.background='rgba(255,118,117,0.1)';document.querySelectorAll('.rv')[EX.rA].style.borderColor=C.ac;document.querySelectorAll('.rv')[EX.rA].style.background='rgba(0,229,184,0.1)';}EX.step++;setTimeout(rQ,900);};
-
-// --- Typing --- (Quick drill — auto-picks level, no menu)
-function exTyping(){
-  if(!S.data.typingProgress||typeof S.data.typingProgress!=='object'){
-    S.data.typingProgress={ar:1,en:1};
-  }
-  const tpData=S.data.typingProgress;
-  if(!tpData.ar||tpData.ar<1||tpData.ar>10)tpData.ar=1;
-  if(!tpData.en||tpData.en<1||tpData.en>10)tpData.en=1;
-  if(tpData.ar>=10){const h=S.data.hist.filter(x=>x.type==='typing');if(h.length<10)tpData.ar=1;}
-  if(tpData.en>=10){const h=S.data.hist.filter(x=>x.type==='typing');if(h.length<10)tpData.en=1;}
-  saveU(S.data);
-  
-  // Auto-pick: alternate ar/en, or based on which is lower level
-  const lang=tpData.ar<=tpData.en?'ar':'en';
-  const lv=Math.min(tpData[lang],10);
-  const lesson=TYPING_LESSONS[lang][lv-1];
-  const drill=lesson.drills[Math.floor(Math.random()*lesson.drills.length)];
-  const isAr=lang==='ar';
-  
-  EX.total=drill.length;EX.correct=0;EX.typed=0;EX.text=drill;EX.isAr=isAr;EX.errors=0;EX.tpLang=lang;EX.tpLv=lv;
-  EX.start=Date.now();
-  
-  // Build UI — single screen, no menu
-  let charSpans=drill.split('').map((ch,i)=>`<span id="tc${i}" style="color:${i===0?C.gld:'rgba(255,255,255,0.25)'};${i===0?'border-bottom:2px solid '+C.gld:''};font-size:22px">${ch===' '?'·':ch}</span>`).join('');
-  
-  $('exA').innerHTML=`<div style="width:100%;max-width:600px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-      <div style="font-size:14px;color:${C.dim}">${isAr?'🇸🇦':'🇬🇧'} ${lv>=10?'تدريب':'درس '+lv} <b style="color:#fff">${lesson.title}</b></div>
-      <div style="font-size:13px"><span>دقة: <b id="tpAcc" style="color:${C.ac}">100%</b></span> <span style="margin-right:10px">أخطاء: <b id="tpErr" style="color:${C.dng}">0</b></span></div>
-    </div>
-    <div style="background:rgba(255,255,255,0.03);border-radius:12px;padding:20px;line-height:2.5;letter-spacing:2px;direction:${isAr?'rtl':'ltr'};text-align:${isAr?'right':'left'};position:relative;cursor:text" onclick="document.getElementById('tpHid').focus()">${charSpans}<textarea id="tpHid" style="position:absolute;opacity:0;width:1px;height:1px;top:0;left:0" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea></div>
-    <div style="text-align:center;margin:14px 0">
-      <span style="font-size:14px;color:${C.dim}">التالي:</span>
-      <span id="tpNext" style="font-size:30px;font-weight:800;color:${C.ac};margin:0 8px;font-family:'Readex Pro'">${drill[0]===' '?'مسافة':drill[0]}</span>
-    </div>
-    <div style="text-align:center;padding:8px;background:rgba(255,118,117,0.06);border-radius:8px;font-size:13px;color:${C.gld}">⚠️ لا تنظر للكيبورد</div>
-    <div style="width:100%;height:5px;background:rgba(255,255,255,0.05);border-radius:3px;margin-top:10px;overflow:hidden"><div id="tpBar" style="height:100%;width:0%;background:linear-gradient(90deg,${C.ac},${C.ac2});border-radius:3px;transition:width 0.3s"></div></div>
-  </div>`;
-  
-  const hidInp=$('tpHid');hidInp.focus();
-  
-  function processChar(ch){
-    const expected=EX.text[EX.typed];
-    const span=$('tc'+EX.typed);
-    if(ch===expected){
-      EX.typed++;EX.correct++;
-      if(span){span.style.color=C.ac;span.style.borderBottom='none';}
-    }else{
-      EX.errors++;
-      if(span){span.style.color=C.dng;span.style.borderBottom='2px solid '+C.dng;}
-      EX.typed++;
-    }
-    $('tpBar').style.width=(EX.typed/EX.total*100)+'%';
-    $('exP').style.width=(EX.typed/EX.total*100)+'%';
-    $('tpErr').textContent=EX.errors;
-    const acc=EX.typed>0?Math.round(EX.correct/EX.typed*100):100;
-    const accEl=$('tpAcc');accEl.textContent=acc+'%';accEl.style.color=acc>=90?C.ac:acc>=70?C.gld:C.dng;
-    
-    if(EX.typed>=EX.total){finishTypingLesson();return;}
-    
-    const nextSpan=$('tc'+EX.typed);
-    if(nextSpan){nextSpan.style.color=C.gld;nextSpan.style.borderBottom='2px solid '+C.gld;}
-    const nextCh=EX.text[EX.typed];
-    $('tpNext').textContent=nextCh===' '?'مسافة':nextCh;
-  }
-  
-  hidInp.oninput=function(){
-    const v=hidInp.value;
-    if(v.length>0){
-      const lastChar=v[v.length-1];
-      hidInp.value='';
-      processChar(lastChar);
-    }
-  };
-  hidInp.onkeydown=function(e){
-    if(e.key===' '){e.preventDefault();processChar(' ');}
-    else if(e.key==='Backspace')e.preventDefault();
-    else if(!isAr&&e.key.length===1){e.preventDefault();processChar(e.key);}
-  };
-  document.addEventListener('click',function tpFocus(){
-    if(EX.tpLang&&$('tpHid'))$('tpHid').focus();
-    else document.removeEventListener('click',tpFocus);
-  });
-}
-
-function finishTypingLesson(){
-  const dur=Math.round((Date.now()-EX.start)/1000);
-  const accuracy=EX.typed>0?Math.round(EX.correct/EX.typed*100):0;
-  const passed=accuracy>=70;
-  
-  // Level up if passed
-  if(passed&&EX.tpLv<10){
-    S.data.typingProgress[EX.tpLang]=EX.tpLv+1;
-  }
-  saveU(S.data);
-  
-  // Use standard finishEx
-  EX.total=EX.text.length;
-  finishEx();
-}
-
-// --- Shortcuts --- (Keyboard-based answers with context labels)
-function exShortcuts(){
-  EX.total=8;EX.correct=0;EX.step=0;EX.pool=shuf([...SHORTCUTS]).slice(0,8);
-  showSCQ();
-}
-function showSCQ(){
-  if(EX.step>=8){finishEx();return;}
-  const sc=EX.pool[EX.step];
-  const catColors={'ويندوز':'rgba(0,229,184,0.15);color:#00E5B8','Excel':'rgba(108,92,231,0.15);color:#a29bfe','المتصفح':'rgba(253,203,110,0.15);color:#FDCB6E'};
-  const catStyle=catColors[sc.cat]||catColors['ويندوز'];
-  
-  $('exP').style.width=(EX.step/8*100)+'%';
-  
-  if(sc.noPress){
-    // Multiple choice for dangerous shortcuts
-    const correct=sc.keys.join(' + ');
-    const others=SHORTCUTS.filter(s=>s!==sc).sort(()=>Math.random()-0.5).slice(0,3).map(s=>s.keys.join(' + '));
-    const opts=[correct,...others].sort(()=>Math.random()-0.5);
-    $('exA').innerHTML=`<div style="font-size:16px;color:${C.dim};text-align:center;margin-bottom:8px">(${EX.step+1}/8)</div>
-      <div style="font-family:'Readex Pro';font-size:26px;font-weight:700;text-align:center;margin:10px 0 8px">${sc.desc}</div>
-      <div style="text-align:center;margin-bottom:8px"><span style="font-size:13px;padding:5px 14px;border-radius:6px;background:${catStyle};font-weight:600">🖥️ ${sc.cat}</span></div>
-      <div style="text-align:center;margin-bottom:14px;font-size:14px;color:${C.gld}">⚠️ اختر الإجابة الصحيحة</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:500px;direction:ltr">${opts.map(o=>`<div class="ob" onclick="scMC('${o.replace(/'/g,"\\'")}',this,'${correct.replace(/'/g,"\\'")}','${sc.desc}')" style="padding:16px;background:rgba(255,255,255,0.03);border:2px solid rgba(255,255,255,0.06);border-radius:12px;text-align:center;font-size:15px;font-weight:600;cursor:pointer;transition:all 0.3s">${o}</div>`).join('')}</div>`;
-    return;
-  }
-  
-  // Normal keypress mode
-  $('exA').innerHTML=`<div style="font-size:16px;color:${C.dim};text-align:center;margin-bottom:8px">(${EX.step+1}/8)</div>
-    <div style="font-family:'Readex Pro';font-size:26px;font-weight:700;text-align:center;margin:10px 0 8px">${sc.desc}</div>
-    <div style="text-align:center;margin-bottom:14px"><span style="font-size:13px;padding:5px 14px;border-radius:6px;background:${catStyle};font-weight:600">🖥️ ${sc.cat}</span></div>
-    <div style="text-align:center;margin-bottom:14px;font-size:14px;color:${C.dim}">⌨️ اضغط الاختصار على الكيبورد</div>
-    <div style="text-align:center;padding:18px;background:rgba(255,255,255,0.03);border:2px dashed rgba(255,255,255,0.1);border-radius:14px;min-height:60px;display:flex;align-items:center;justify-content:center;direction:ltr" id="scKeys">
-      <span style="color:${C.dim};font-size:15px">في انتظار الضغط...</span>
-    </div>
-    <div id="scFeedback" style="text-align:center;margin-top:14px;font-size:16px;min-height:60px"></div>`;
-  $('exP').style.width=(EX.step/8*100)+'%';
-  
-  // Listen for keyboard
-  EX.scPressed=new Set();EX.scDone=false;
-  const expectedKeys=sc.keys.map(k=>k.toLowerCase());
-  
-  document.onkeydown=function(e){
-    if(EX.scDone)return;
-    e.preventDefault();
-    let key=e.key.toLowerCase();
-    if(key==='control')key='ctrl';
-    if(key===' ')key='space';
-    EX.scPressed.add(key);
-    // Show pressed keys
-    const pressedArr=[...EX.scPressed];
-    $('scKeys').innerHTML=pressedArr.map(k=>`<span class="shortcut-key" style="font-size:16px;padding:8px 14px">${k}</span>`).join('<span class="shortcut-plus" style="font-size:14px">+</span>');
-  };
-  document.onkeyup=function(e){
-    if(EX.scDone)return;
-    const pressedArr=[...EX.scPressed].sort().join('+');
-    const expectedArr=expectedKeys.sort().join('+');
-    const isCorrect=pressedArr===expectedArr;
-    EX.scDone=true;
-    
-    if(isCorrect){
-      EX.correct++;
-      $('scKeys').style.borderColor=C.ac;$('scKeys').style.background='rgba(0,229,184,0.08)';
-      $('scFeedback').innerHTML=`<div style="color:${C.ac};font-weight:700;font-size:18px">✅ صحيح! أحسنت</div>`;
-    }else{
-      $('scKeys').style.borderColor=C.dng;$('scKeys').style.background='rgba(255,118,117,0.08)';
-      $('scFeedback').innerHTML=`<div style="color:${C.dng};font-weight:700;font-size:17px;margin-bottom:6px">❌ خطأ</div><div style="font-size:15px;color:${C.dim}">الصحيح هو:</div><div style="margin-top:8px;direction:ltr">${sc.keys.map(k=>`<span class="shortcut-key" style="font-size:15px;padding:6px 12px;border-color:${C.ac}">${k}</span>`).join('<span class="shortcut-plus">+</span>')}</div>`;
-    }
-    EX.step++;
-    setTimeout(()=>{EX.scPressed=new Set();document.onkeydown=null;document.onkeyup=null;showSCQ();},2200);
-  };
-}
-
-function shuf(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}return b;}
-
-window.scMC=function(ans,el,correct,desc){
-  document.querySelectorAll('.ob').forEach(b=>b.style.pointerEvents='none');
-  if(ans===correct){
-    EX.correct++;el.style.borderColor=C.ac;el.style.background='rgba(0,229,184,0.12)';
-  }else{
-    el.style.borderColor=C.dng;el.style.background='rgba(255,118,117,0.12)';
-    document.querySelectorAll('.ob').forEach(b=>{if(b.textContent===correct){b.style.borderColor=C.ac;b.style.background='rgba(0,229,184,0.12)';}});
-  }
-  EX.step++;setTimeout(showSCQ,1500);
-};
-
-// ============ PROGRESS + GROWTH ============
-function rProgress(){
-  const u=S.data;const emps=getEmpList();
-  // 30 days
-  let dH='';for(let i=29;i>=0;i--){const d=new Date(Date.now()-i*864e5);const ds=d.toDateString();const done=u.hist.some(h=>new Date(h.date).toDateString()===ds);dH+=`<div style="width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;border:1.5px solid ${done?C.ac:i===0?C.gld:'rgba(255,255,255,0.08)'};background:${done?'rgba(0,229,184,0.15)':'rgba(255,255,255,0.02)'};color:${done?C.ac:i===0?C.gld:'inherit'}">${d.getDate()}</div>`;}
-
-  const t=u.hist.length;const avgA=t?Math.round(u.hist.reduce((a,b)=>a+b.score,0)/t):0;
-
-  // Per-skill deep analysis
-  let skillCards='';
-  EXT.forEach(ex=>{
-    const myH=u.hist.filter(h=>h.type===ex.id);
-    const myAvg=myH.length?Math.round(myH.reduce((a,b)=>a+b.score,0)/myH.length):0;
-    // My growth: first half vs second half
-    let growth=0,growthMsg='';
-    if(myH.length>=4){
-      const m=Math.floor(myH.length/2);
-      const firstAvg=Math.round(myH.slice(0,m).reduce((a,b)=>a+b.score,0)/m);
-      const secAvg=Math.round(myH.slice(m).reduce((a,b)=>a+b.score,0)/(myH.length-m));
-      growth=secAvg-firstAvg;
-    }
-    if(growth>10)growthMsg=`<span style="color:${C.ac}">📈 تطور ممتاز! تحسنت +${growth}% عن بدايتك</span>`;
-    else if(growth>0)growthMsg=`<span style="color:${C.ac}">📈 تتحسن! +${growth}% عن بدايتك</span>`;
-    else if(growth===0&&myH.length>0)growthMsg=`<span style="color:${C.gld}">➡️ مستقر، واصل وبتشوف الفرق</span>`;
-    else if(growth<0)growthMsg=`<span style="color:${C.gld}">💪 لا تقلق، الصعوبة تزيد مع تقدمك</span>`;
-    else growthMsg=`<span style="color:${C.dim}">⏳ ابدأ التمرين وشوف تقدمك</span>`;
-
-    // Level description
-    const lvl=myAvg>=85?'متقدم 🌟':myAvg>=70?'جيد جداً 💪':myAvg>=50?'جيد 👍':myAvg>0?'مبتدئ 🌱':'لم يبدأ';
-    const lvlC=myAvg>=85?C.ac:myAvg>=70?C.ac2:myAvg>=50?C.gld:C.dim;
-
-    // Peer comparison (anonymous)
-    const peerScores=emps.filter(e=>e.uid!==S.user.uid&&e.role!=='admin').map(e=>{
-      const d=gs('u_'+e.email);const h=(d?.hist||[]).filter(x=>x.type===ex.id);
-      return h.length?Math.round(h.reduce((a,b)=>a+b.score,0)/h.length):-1;
-    }).filter(v=>v>=0);
-    const peerAvg=peerScores.length?Math.round(peerScores.reduce((a,b)=>a+b,0)/peerScores.length):0;
-    const betterCount=peerScores.filter(v=>v<myAvg).length;
-    const peerPct=peerScores.length?Math.round((betterCount/peerScores.length)*100):0;
-
-    let peerMsg='';
-    if(!myH.length) peerMsg='';
-    else if(peerPct>=80) peerMsg=`<span style="color:${C.ac}">أنت متقدم على ${peerPct}% من الزملاء — استمر!</span>`;
-    else if(peerPct>=50) peerMsg=`<span style="color:${C.gld}">نسبتك أفضل من ${peerPct}% — شغل حلو، كمّل!</span>`;
-    else if(peerPct>=20) peerMsg=`<span style="color:${C.gld}">الزملاء كمان يشتغلون على <b>أنفسهم</b> — ركّز على تطورك أنت</span>`;
-    else if(peerScores.length) peerMsg=`<span style="color:${C.dim}">الهدف تطورك أنت — كل واحد يبني نفسه بنفسه</span>`;
-
-    skillCards+=`<div style="background:rgba(255,255,255,0.02);border:1px solid ${C.gb};border-radius:14px;padding:18px">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-        <span style="font-size:28px">${ex.ic}</span>
-        <div style="flex:1"><div style="font-weight:700;font-size:15px">${ex.n}</div><div style="font-size:11px;color:${C.dim}">${ex.d}</div></div>
-        <div style="text-align:left"><div style="font-family:'Readex Pro';font-size:22px;font-weight:700;color:${lvlC}">${myAvg}%</div><div style="font-size:10px;color:${lvlC}">${lvl}</div></div>
-      </div>
-      <div style="width:100%;height:6px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden;margin-bottom:12px"><div style="height:100%;width:${myAvg}%;background:linear-gradient(90deg,${C.ac},${C.ac2});border-radius:3px"></div></div>
-      <div style="font-size:12px;line-height:2">
-        <div>📊 عدد المحاولات: <b>${myH.length}</b></div>
-        <div>${growthMsg}</div>
-        ${peerMsg?`<div style="margin-top:4px;padding:6px 10px;background:rgba(255,255,255,0.02);border-radius:6px">${peerMsg}</div>`:''}
-      </div>
-    </div>`;
-  });
-
-  $('ct').innerHTML=`
-  <div class="card fi"><div style="font-family:'Readex Pro';font-size:17px;font-weight:600;margin-bottom:14px">📅 آخر 30 يوم</div><div style="display:flex;gap:4px;flex-wrap:wrap">${dH}</div></div>
-
-  <div class="card fi">
-    <div style="font-family:'Readex Pro';font-size:17px;font-weight:600;margin-bottom:6px">📈 ملخص رحلتك</div>
-    <div style="font-size:12px;color:${C.dim};margin-bottom:16px;line-height:1.8">الهدف هو تطورك <b style="color:#fff">أنت</b> — مقارنتك الحقيقية مع نفسك بالأمس. الآخرين كمان شغالين تطوير على <b style="color:#fff">أنفسهم</b>.</div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
-      <div style="background:rgba(0,229,184,0.06);border:1px solid rgba(0,229,184,0.12);border-radius:12px;padding:14px;text-align:center"><div style="font-size:11px;color:${C.dim};margin-bottom:4px">المعدل العام</div><div style="font-family:'Readex Pro';font-size:24px;font-weight:700;color:${C.ac}">${avgA}%</div></div>
-      <div style="background:rgba(108,92,231,0.06);border:1px solid rgba(108,92,231,0.12);border-radius:12px;padding:14px;text-align:center"><div style="font-size:11px;color:${C.dim};margin-bottom:4px">المستوى</div><div style="font-family:'Readex Pro';font-size:24px;font-weight:700;color:${C.ac2}">${u.level}</div></div>
-      <div style="background:rgba(253,203,110,0.06);border:1px solid rgba(253,203,110,0.12);border-radius:12px;padding:14px;text-align:center"><div style="font-size:11px;color:${C.dim};margin-bottom:4px">إجمالي التمارين</div><div style="font-family:'Readex Pro';font-size:24px;font-weight:700;color:${C.gld}">${t}</div></div>
-      <div style="background:rgba(255,118,117,0.06);border:1px solid rgba(255,118,117,0.12);border-radius:12px;padding:14px;text-align:center"><div style="font-size:11px;color:${C.dim};margin-bottom:4px">أطول سلسلة</div><div style="font-family:'Readex Pro';font-size:24px;font-weight:700;color:#ff7675">🔥 ${u.best||u.streak}</div></div>
-    </div>
-  </div>
-
-  <div class="card fi">
-    <div style="font-family:'Readex Pro';font-size:17px;font-weight:600;margin-bottom:6px">🎯 تحليل كل مهارة</div>
-    <div style="font-size:12px;color:${C.dim};margin-bottom:14px">كل تمرين له قصة — شوف وين تطورت ووين تحتاج تركيز أكثر</div>
-    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px">${skillCards}</div>
-  </div>`;
-}
-
-// ============ TEAM ============
-function rTeam(){const emps=getEmpList().filter(e=>e.dept===S.user.dept);let rows='';
-  emps.forEach(emp=>{const d=gs('u_'+emp.email);const lv=d?.level||0;const st=d?.streak||0;const hist=d?.hist||[];const avg=hist.length?Math.round(hist.reduce((a,b)=>a+b.score,0)/hist.length):0;const td_=d?.todayD===td()?Object.keys(d.todayEx||{}).length:0;const ad=new Set(hist.map(h=>new Date(h.date).toDateString())).size;const cm=Math.min(Math.round((ad/30)*100),100);
-    const rt=cm>=80&&avg>=70?'ممتاز':cm>=50&&avg>=50?'جيد':cm>0?'يحتاج تحسين':'—';const rc=rt==='ممتاز'?C.ac:rt==='جيد'?C.gld:C.dng;
-    rows+=`<tr>${[emp.name+(emp.role==='manager'?' 👑':''),'Lv'+lv,td_+'/8',cm+'%',avg+'%',st+'🔥',`<span style="padding:3px 8px;border-radius:5px;font-size:11px;font-weight:600;background:${rc}20;color:${rc}">${rt}</span>`].map(v=>`<td style="padding:11px 12px;font-size:13px;background:rgba(255,255,255,0.015)">${v}</td>`).join('')}</tr>`;});
-  $('ct').innerHTML=`<div class="card fi"><div style="font-family:'Readex Pro';font-size:17px;font-weight:600;margin-bottom:16px">👥 فريق ${dn(S.user.dept)}</div><div style="overflow-x:auto"><table style="width:100%;border-collapse:separate;border-spacing:0 5px"><thead><tr>${['الموظف','المستوى','اليوم','الالتزام','المعدل','متتالية','التقييم'].map(h=>`<th style="text-align:right;padding:9px 12px;font-size:11px;color:${C.dim};font-weight:500;border-bottom:1px solid ${C.gb}">${h}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div></div>`;}
-
-// ============ ADMIN ============
-async function rAdmin(){
-  // Load all employee data from Firebase
-  $('ct').innerHTML='<div class="fi" style="text-align:center;padding:40px"><div style="font-size:30px;margin-bottom:10px">⏳</div><div style="color:'+C.dim+'">جاري تحميل بيانات الموظفين...</div></div>';
-  const emps=getEmpList();
-  // Fetch all users from Firestore
-  try{
-    const snap=await db.collection('users').get();
-    snap.forEach(doc=>{ss('u_'+doc.data().email,doc.data());});
-  }catch(e){console.warn('FB bulk read:',e);}
-  
-  let allD=emps.map(emp=>{const d=gs('u_'+emp.email);const hist=d?.hist||[];const avg=hist.length?Math.round(hist.reduce((a,b)=>a+b.score,0)/hist.length):0;const ad=new Set(hist.map(h=>new Date(h.date).toDateString())).size;
-    // Calculate commitment from first exercise date (not fixed 30 days)
-    let totalDays=1;
-    if(hist.length>0){const firstDate=new Date(hist[0].date);const now=new Date();totalDays=Math.max(1,Math.floor((now-firstDate)/(864e5))+1);}
-    const cm=hist.length>0?Math.min(Math.round((ad/totalDays)*100),100):0;
-    const td_=d?.todayD===td()?Object.keys(d.todayEx||{}).length:0;
-    let imp=0;if(hist.length>=4){const m=Math.floor(hist.length/2);imp=Math.round(hist.slice(m).reduce((a,b)=>a+b.score,0)/(hist.length-m)-hist.slice(0,m).reduce((a,b)=>a+b.score,0)/m);}
-    return{...emp,level:d?.level||0,streak:d?.streak||0,avg,cm,td:td_,imp,points:d?.points||0};});
-  const tA=allD.filter(d=>d.td>=8).length;const aC=Math.round(allD.reduce((a,b)=>a+b.cm,0)/allD.length);
-  let dc='';DEPTS.forEach(dept=>{const de=allD.filter(e=>e.dept===dept.id);const da=de.length?Math.round(de.reduce((a,b)=>a+b.cm,0)/de.length):0;dc+=`<div style="background:rgba(255,255,255,0.02);border:1px solid ${C.gb};border-radius:12px;padding:14px;text-align:center"><div style="font-weight:600;font-size:13px;margin-bottom:6px">${dept.n}</div><div style="font-family:'Readex Pro';font-size:22px;font-weight:700;color:${C.ac}">${da}%</div><div style="font-size:10px;color:${C.dim}">${de.length} موظف</div></div>`;});
-  allD.sort((a,b)=>b.cm-a.cm);
-  let rows=allD.map(d=>{const rt=d.cm>=80&&d.avg>=70?'ممتاز':d.cm>=50&&d.avg>=50?'جيد':d.cm>0?'يحتاج تحسين':'—';const rc=rt==='ممتاز'?C.ac:rt==='جيد'?C.gld:C.dng;
-    return`<tr>${[d.name,dn(d.dept),'<span style="color:'+getRank(d.points).color+'">'+getRank(d.points).name+'</span>',d.points,d.td+'/8',d.cm+'%',d.avg+'%',(d.imp>=0?'↑':'↓')+Math.abs(d.imp)+'%',d.streak+'🔥',`<span style="padding:3px 8px;border-radius:5px;font-size:11px;font-weight:600;background:${rc}20;color:${rc}">${rt}</span>`].map(v=>`<td style="padding:11px 12px;font-size:12px;background:rgba(255,255,255,0.015)">${v}</td>`).join('')}</tr>`;}).join('');
-  
-  // Sort by points (ranking)
-  allD.sort((a,b)=>b.points-a.points);
-  
-  // Employee management table
-  let empRows=emps.map((e,idx)=>{
-    const supName=e.sup?emps.find(x=>x.uid===e.sup)?.name||'-':'-';
-    return`<tr><td style="padding:8px 10px;font-size:12px;background:rgba(255,255,255,0.015);font-weight:600">${e.name}</td><td style="padding:8px 10px;font-size:11px;background:rgba(255,255,255,0.015);direction:ltr;color:${C.ac}">${e.uid}</td><td style="padding:8px 10px;font-size:11px;background:rgba(255,255,255,0.015);direction:ltr">${e.email}</td><td style="padding:8px 10px;font-size:12px;background:rgba(255,255,255,0.015)">${dn(e.dept)}</td><td style="padding:8px 10px;font-size:12px;background:rgba(255,255,255,0.015)">${ROLES[e.role]||e.role}</td><td style="padding:8px 10px;font-size:12px;background:rgba(255,255,255,0.015)">${supName}</td><td style="padding:8px 10px;font-size:12px;background:rgba(255,255,255,0.015)"><span onclick="delEmp(${idx})" style="color:${C.dng};cursor:pointer;font-size:11px">🗑️</span></td></tr>`;
-  }).join('');
-
-  $('ct').innerHTML=`<div class="fi" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">${[['الموظفين',emps.length],['أكملوا اليوم',tA+'/'+emps.length],['الالتزام',aC+'%'],['الأقسام',DEPTS.length]].map(([l,v])=>`<div style="background:${C.cb};border:1px solid ${C.gb};border-radius:16px;padding:18px"><div style="font-size:11px;color:${C.dim};margin-bottom:5px">${l}</div><div style="font-family:'Readex Pro';font-size:26px;font-weight:700">${v}</div></div>`).join('')}</div>
-  <div class="card fi"><div style="font-family:'Readex Pro';font-size:17px;font-weight:600;margin-bottom:12px">🏢 الأقسام</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">${dc}</div></div>
-  <div class="card fi"><div style="font-family:'Readex Pro';font-size:17px;font-weight:600;margin-bottom:16px">📋 التقرير التفصيلي</div><div style="overflow-x:auto"><table style="width:100%;border-collapse:separate;border-spacing:0 5px"><thead><tr>${['الموظف','القسم','المرتبة','النقاط','اليوم','الالتزام','المعدل','التحسن','متتالية','التقييم'].map(h=>`<th style="text-align:right;padding:9px 12px;font-size:11px;color:${C.dim};font-weight:500;border-bottom:1px solid ${C.gb}">${h}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div></div>
-  
-  <div class="card fi"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><div style="font-family:'Readex Pro';font-size:17px;font-weight:600">👥 إدارة الموظفين</div><div style="display:flex;gap:8px"><button class="btn" style="width:auto;padding:8px 18px;font-size:13px" onclick="showAddEmp()">➕ إضافة موظف</button><button class="btn2" style="padding:8px 18px;font-size:13px;background:rgba(253,203,110,0.1);color:${C.gld};border-color:rgba(253,203,110,0.2)" onclick="showImportPanel()">📥 استيراد من ملف</button></div></div>
-    <div style="overflow-x:auto"><table style="width:100%;border-collapse:separate;border-spacing:0 4px"><thead><tr>${['الاسم','المعرّف','الإيميل','القسم','الدور','المشرف',''].map(h=>`<th style="text-align:right;padding:8px 10px;font-size:11px;color:${C.dim};font-weight:500;border-bottom:1px solid ${C.gb}">${h}</th>`).join('')}</tr></thead><tbody>${empRows}</tbody></table></div>
-  </div>
-
-  <div class="card fi" id="importPanel" style="display:none;max-width:700px">
-    <div style="font-family:'Readex Pro';font-size:17px;font-weight:600;margin-bottom:10px">📥 استيراد الموظفين من ملف Excel</div>
-    <p style="font-size:13px;color:${C.dim};margin-bottom:14px;line-height:1.8">ارفع ملف القالب بعد تعبئته. الأعمدة المطلوبة: <b style="color:#fff">الاسم بالعربي، الاسم بالإنجليزي، المعرّف، الإيميل، القسم، الدور</b>. باقي الأعمدة اختيارية.</p>
-    <div style="padding:20px;background:rgba(253,203,110,0.04);border:2px dashed rgba(253,203,110,0.2);border-radius:14px;text-align:center;cursor:pointer;transition:all 0.3s" onclick="document.getElementById('impFile').click()" id="dropZone">
-      <div style="font-size:36px;margin-bottom:8px">📄</div>
-      <div style="font-size:14px;color:${C.gld}">اضغط هنا لاختيار الملف</div>
-      <div style="font-size:12px;color:${C.dim};margin-top:4px">يدعم: .xlsx, .csv</div>
-      <input type="file" id="impFile" accept=".xlsx,.csv" style="display:none" onchange="handleImportFile(this)">
-    </div>
-    <div id="impPreview" style="margin-top:14px;display:none"></div>
-    <div id="impMsg" style="font-size:13px;margin-top:10px;display:none"></div>
-    <div style="display:flex;gap:8px;margin-top:14px"><button class="btn" style="width:auto;padding:10px 24px;font-size:13px;display:none" id="impConfirm" onclick="confirmImport()">✅ تأكيد الاستيراد</button><button class="btn2" onclick="$('importPanel').style.display='none'">إلغاء</button></div>
-  </div>
-  ${S.user.role==='gm'||S.user.role==='admin'?`<div class="card fi" style="max-width:600px">
-    <div style="font-family:'Readex Pro';font-size:17px;font-weight:600;margin-bottom:14px">📋 فتح عذر / تمرين فائت</div>
-    <p style="font-size:13px;color:${C.dim};margin-bottom:14px;line-height:1.8">إذا موظف غاب بعذر طبي أو ظرف طارئ — يوقف الخصم ويفتح له تمرين الأمس.</p>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-      <div><label style="font-size:11px;color:${C.dim};display:block;margin-bottom:4px">الموظف</label>
-        <select class="inp" id="excEmp">${emps.map(e=>`<option value="${e.email}">${e.name}</option>`).join('')}</select></div>
-      <div><label style="font-size:11px;color:${C.dim};display:block;margin-bottom:4px">السبب</label>
-        <select class="inp" id="excReason"><option value="medical">🏥 عذر طبي</option><option value="emergency">⚠️ ظرف طارئ</option><option value="admin">📋 إداري</option></select></div>
-    </div>
-    <div style="margin-bottom:10px"><label style="font-size:11px;color:${C.dim};display:block;margin-bottom:4px">ملاحظة (اختياري)</label><input class="inp" id="excNote" placeholder="تفاصيل إضافية..."></div>
-    <div id="excMsg" style="font-size:12px;margin-top:8px;display:none"></div>
-    <button class="btn" style="width:auto;padding:10px 24px;font-size:13px" onclick="grantExcuse()">✅ فتح عذر ليوم أمس</button>
-  </div>`:''}
-
-  ${r==='admin'||r==='gm'?`<div class="card fi" style="max-width:600px">
-    <div style="font-family:'Readex Pro';font-size:17px;font-weight:600;margin-bottom:14px">🔄 إعادة تمارين اليوم لموظف</div>
-    <div style="margin-bottom:12px"><label style="font-size:12px;color:${C.dim};display:block;margin-bottom:5px">اختر الموظف</label>
-      <select class="inp" id="resetEmpSel">${emps.map(e=>`<option value="${e.email}">${e.name} (${e.uid})</option>`).join('')}</select></div>
-    <div id="resetEmpMsg" style="font-size:12px;margin:8px 0;display:none"></div>
-    <button class="btn" style="width:auto;padding:10px 24px;font-size:13px;background:linear-gradient(135deg,${C.ac2},#a29bfe)" onclick="resetEmpToday()">🔄 إعادة تمارين اليوم</button>
-  </div>`:''}
-
-  <div class="card fi" id="addEmpForm" style="display:none;max-width:600px">
-    <div style="font-family:'Readex Pro';font-size:17px;font-weight:600;margin-bottom:16px">➕ إضافة موظف جديد</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div><label style="font-size:11px;color:${C.dim};display:block;margin-bottom:4px">الاسم الكامل</label><input class="inp" id="nName" placeholder="مثال: علي أحمد"></div>
-      <div><label style="font-size:11px;color:${C.dim};display:block;margin-bottom:4px">المعرّف (قصير)</label><input class="inp" id="nUid" placeholder="مثال: a.ahm" style="direction:ltr;text-align:left"></div>
-      <div><label style="font-size:11px;color:${C.dim};display:block;margin-bottom:4px">الإيميل</label><input class="inp" id="nEmail" placeholder="ali@fast.sa" style="direction:ltr;text-align:left"></div>
-      <div><label style="font-size:11px;color:${C.dim};display:block;margin-bottom:4px">القسم</label><select class="inp" id="nDept">${DEPTS.map(d=>`<option value="${d.id}">${d.n}</option>`).join('')}</select></div>
-      <div><label style="font-size:11px;color:${C.dim};display:block;margin-bottom:4px">الدور</label><select class="inp" id="nRole"><option value="employee">موظف</option><option value="manager">مدير/مشرف</option></select></div>
-      <div><label style="font-size:11px;color:${C.dim};display:block;margin-bottom:4px">المشرف</label><select class="inp" id="nSup"><option value="">بدون مشرف</option>${emps.filter(e=>e.role==='manager'||e.role==='admin').map(e=>`<option value="${e.uid}">${e.name}</option>`).join('')}</select></div>
-    </div>
-    <div id="addMsg" style="font-size:12px;margin-top:8px;display:none"></div>
-    <div style="display:flex;gap:8px;margin-top:14px"><button class="btn" style="width:auto;padding:10px 24px;font-size:13px" onclick="addEmp()">✅ إضافة</button><button class="btn2" onclick="$('addEmpForm').style.display='none'">إلغاء</button></div>
-  </div>`;
-}
-
-window.showAddEmp=function(){$('addEmpForm').style.display='block';$('addEmpForm').scrollIntoView({behavior:'smooth'});};
-
-window.addEmp=async function(){
-  const name=$('nName').value.trim();const uid=$('nUid').value.trim().toLowerCase();const email=$('nEmail').value.trim().toLowerCase();const dept=$('nDept').value;const role=$('nRole').value;const sup=$('nSup').value;
-  const msg=$('addMsg');msg.style.display='block';
-  if(!name||!uid||!email){msg.style.color=C.dng;msg.textContent='❌ جميع الحقول مطلوبة';return;}
-  const emps=getEmpList();
-  if(emps.find(e=>e.uid===uid)){msg.style.color=C.dng;msg.textContent='❌ المعرّف مستخدم من قبل';return;}
-  if(emps.find(e=>e.email===email)){msg.style.color=C.dng;msg.textContent='❌ الإيميل مستخدم من قبل';return;}
-  emps.push({name,uid,email,dept,role,sup});await setEmps(emps);
-  // Create user data in Firebase
-  const ud=loadU(email);ud.pass='1234';saveU(ud);
-  msg.style.color=C.ac;msg.textContent=`✅ تم إضافة ${name} (${uid}) — كلمة المرور: 1234`;
-  $('nName').value='';$('nUid').value='';$('nEmail').value='';
-  setTimeout(()=>rAdmin(),1500);
-};
-
-window.delEmp=async function(idx){
-  const emps=getEmpList();const emp=emps[idx];
-  if(!confirm(`حذف ${emp.name}؟`))return;
-  // Delete from Firebase too
-  await fbDel('users',emp.email.replace(/[.@]/g,'_'));
-  emps.splice(idx,1);await setEmps(emps);rAdmin();
-};
-
-window.grantExcuse=function(){
-  const email=$('excEmp').value;const reason=$('excReason').value;const note=$('excNote')?.value||'';
-  const msg=$('excMsg');msg.style.display='block';
-  const empData=gs('u_'+email);
-  if(!empData){msg.style.color=C.dng;msg.textContent='❌ بيانات الموظف غير موجودة';return;}
-  
-  const yesterday=new Date(Date.now()-864e5).toDateString();
-  if(!empData.excusedDays)empData.excusedDays=[];
-  
-  // Check if already excused
-  if(empData.excusedDays.some(e=>new Date(e.date).toDateString()===yesterday)){
-    msg.style.color=C.gld;msg.textContent='⚠️ هذا الموظف عنده عذر ليوم أمس مسبقاً';return;
-  }
-  
-  empData.excusedDays.push({date:yesterday,reason,note,by:S.user.name,grantedAt:new Date().toISOString()});
-  
-  // Refund penalty points
-  const penalty=calcMissedPenalty(empData);
-  if(penalty<0)empData.points=Math.min(empData.points+Math.abs(penalty),empData.points+30); // refund up to 30
-  
-  ss('u_'+email,empData);
-  
-  // Log for transparency
-  const logs=JSON.parse(localStorage.getItem('excuse_log')||'[]');
-  const empInfo=getEmpList().find(e=>e.email===email);
-  logs.push({email,empName:empInfo?.name||email,reason,note,by:S.user.name,date:new Date().toISOString()});
-  localStorage.setItem('excuse_log',JSON.stringify(logs));
-  
-  msg.style.color=C.ac;msg.textContent=`✅ تم فتح عذر لـ ${empInfo?.name||email} ليوم أمس — السبب: ${reason==='medical'?'طبي':reason==='emergency'?'طارئ':'إداري'}`;
-  if($('excNote'))$('excNote').value='';
-};
-
-// ============ IMPORT FROM FILE ============
-window.showImportPanel=function(){$('importPanel').style.display='block';$('importPanel').scrollIntoView({behavior:'smooth'});};
-window.S_importData=null;
-
-window.handleImportFile=function(input){
-  const file=input.files[0];if(!file)return;
-  const msg=$('impMsg');msg.style.display='block';msg.style.color=C.gld;msg.textContent='⏳ جاري قراءة الملف...';
-  
-  if(file.name.endsWith('.csv')){
-    const reader=new FileReader();
-    reader.onload=function(e){parseCSV(e.target.result);};
-    reader.readAsText(file);
-  }else if(file.name.endsWith('.xlsx')){
-    const reader=new FileReader();
-    reader.onload=function(e){parseXLSX(e.target.result);};
-    reader.readAsArrayBuffer(file);
-  }else{
-    msg.style.color=C.dng;msg.textContent='❌ صيغة غير مدعومة — استخدم .xlsx أو .csv';
-  }
-};
-
-function parseCSV(text){
-  const lines=text.split('\n').map(l=>l.split(',').map(c=>c.trim().replace(/^"|"$/g,'')));
-  processImportRows(lines);
-}
-
-function parseXLSX(buffer){
-  // Simple XLSX parser — XLSX is ZIP containing XML
-  try{
-    const zip=new Uint8Array(buffer);
-    // Find shared strings and sheet1 XML inside the ZIP
-    const files=unzipSimple(zip);
-    const sharedStrings=parseSharedStrings(files['xl/sharedStrings.xml']||'');
-    const sheetXml=files['xl/worksheets/sheet1.xml']||'';
-    const rows=parseSheetXml(sheetXml,sharedStrings);
-    processImportRows(rows);
-  }catch(err){
-    const msg=$('impMsg');msg.style.display='block';
-    msg.style.color=C.dng;msg.textContent='❌ خطأ في قراءة الملف: '+err.message+' — جرب حفظه كـ CSV';
-  }
-}
-
-// Minimal ZIP parser for XLSX
-function unzipSimple(data){
-  const files={};const view=new DataView(data.buffer);
-  let pos=0;
-  while(pos<data.length-4){
-    if(view.getUint32(pos,true)!==0x04034b50)break;
-    const nameLen=view.getUint16(pos+26,true);
-    const extraLen=view.getUint16(pos+28,true);
-    const compMethod=view.getUint16(pos+8,true);
-    const compSize=view.getUint32(pos+18,true);
-    const uncompSize=view.getUint32(pos+22,true);
-    const name=new TextDecoder().decode(data.slice(pos+30,pos+30+nameLen));
-    const dataStart=pos+30+nameLen+extraLen;
-    const rawData=data.slice(dataStart,dataStart+compSize);
-    
-    if(compMethod===0){
-      files[name]=new TextDecoder().decode(rawData);
-    }else if(compMethod===8){
-      try{
-        const decompressed=new Uint8Array(uncompSize);
-        const ds=new DecompressionStream('deflate-raw');
-        const writer=ds.writable.getWriter();
-        const reader=ds.readable.getReader();
-        let result='';
-        const chunks=[];
-        // Use sync approach with blob
-        const blob=new Blob([rawData]);
-        const stream=blob.stream().pipeThrough(new DecompressionStream('deflate-raw'));
-        // Store for async processing
-        files['_pending_'+name]={stream,rawData,compMethod};
-      }catch(e){}
-    }
-    pos=dataStart+compSize;
-  }
-  return files;
-}
-
-function parseSharedStrings(xml){
-  if(!xml)return[];
-  const strings=[];
-  const regex=/<t[^>]*>([^<]*)<\/t>/g;
-  let m;while((m=regex.exec(xml))!==null)strings.push(m[1]);
-  return strings;
-}
-
-function parseSheetXml(xml,shared){
-  if(!xml)return[];
-  const rows=[];
-  const rowRegex=/<row[^>]*>(.*?)<\/row>/gs;
-  let rm;
-  while((rm=rowRegex.exec(xml))!==null){
-    const cells=[];
-    const cellRegex=/<c\s+r="([A-Z]+)\d+"[^>]*(?:t="([^"]*)")?[^>]*>(?:<v>([^<]*)<\/v>)?/g;
-    let cm;
-    while((cm=cellRegex.exec(rm[1]))!==null){
-      const col=cm[1];const type=cm[2];const val=cm[3]||'';
-      const colIdx=col.split('').reduce((a,c)=>a*26+(c.charCodeAt(0)-64),0)-1;
-      while(cells.length<=colIdx)cells.push('');
-      cells[colIdx]=type==='s'?shared[parseInt(val)]||'':val;
-    }
-    rows.push(cells);
-  }
-  return rows;
-}
-
-function processImportRows(rows){
-  const msg=$('impMsg');msg.style.display='block';
-  
-  // Find header row (skip instruction rows)
-  let headerIdx=-1;
-  const hdrKeys=['المعرّف','uid','الإيميل','البريد','email'];
-  for(let i=0;i<Math.min(rows.length,5);i++){
-    if(rows[i].some(c=>hdrKeys.some(k=>c&&c.toString().includes(k)))){headerIdx=i;break;}
-  }
-  if(headerIdx===-1){msg.style.color=C.dng;msg.textContent='❌ ما لقيت صف العناوين — تأكد الملف يحتوي أعمدة: الاسم، المعرّف، الإيميل';return;}
-  
-  const headers=rows[headerIdx].map(h=>(h||'').toString().trim().toLowerCase());
-  
-  // Map columns
-  const colMap={};
-  const mappings=[
-    {key:'nameAr',match:['الاسم بالعربي','الاسم','name_ar']},
-    {key:'nameEn',match:['الاسم بالإنجليزي','الاسم بالانجليزي','english','name_en']},
-    {key:'uid',match:['المعرّف','المعرف','uid']},
-    {key:'email',match:['البريد','الإيميل','الايميل','email']},
-    {key:'phone',match:['الجوال','الهاتف','phone','جوال']},
-    {key:'age',match:['العمر','age']},
-    {key:'gender',match:['الجنس','gender']},
-    {key:'country',match:['البلد','country','الجنسية']},
-    {key:'dept',match:['القسم','dept','department']},
-    {key:'role',match:['الدور','role']},
-    {key:'sup',match:['المشرف','supervisor','sup']},
-  ];
-  
-  mappings.forEach(m=>{
-    const idx=headers.findIndex(h=>m.match.some(k=>h.includes(k)));
-    if(idx>=0)colMap[m.key]=idx;
-  });
-  
-  // Validate required columns
-  const required=['nameAr','uid','email','dept','role'];
-  const missing=required.filter(k=>colMap[k]===undefined);
-  if(missing.length){
-    msg.style.color=C.dng;msg.textContent=`❌ أعمدة ناقصة: ${missing.join(', ')} — تأكد من أسماء الأعمدة`;return;
-  }
-  
-  // Parse data rows
-  const dataRows=rows.slice(headerIdx+1).filter(r=>r.length>1&&r[colMap.uid]&&r[colMap.email]);
-  // Skip guide/example row
-  const empData=dataRows.filter(r=>{
-    const uid=(r[colMap.uid]||'').toString().trim();
-    return uid&&!uid.includes('مثل')&&!uid.includes('حروف')&&uid.length>0;
-  }).map(r=>{
-    const get=(k)=>(r[colMap[k]]||'').toString().trim();
-    return{
-      nameAr:get('nameAr'),
-      nameEn:get('nameEn'),
-      uid:get('uid').toLowerCase(),
-      email:get('email').toLowerCase(),
-      phone:get('phone'),
-      age:get('age'),
-      gender:get('gender'),
-      country:get('country'),
-      dept:get('dept'),
-      role:get('role'),
-      sup:get('sup'),
-    };
-  });
-  
-  if(empData.length===0){msg.style.color=C.dng;msg.textContent='❌ ما لقيت بيانات موظفين — تأكد الملف مو فاضي';return;}
-  
-  S_importData=empData;
-  
-  // Show preview
-  msg.style.color=C.ac;msg.textContent=`✅ تم قراءة ${empData.length} موظف — راجع البيانات ثم اضغط تأكيد`;
-  $('impConfirm').style.display='block';
-  
-  let prevRows=empData.map((e,i)=>`<tr>${[i+1,e.nameAr,e.nameEn||'—',e.uid,e.email,e.dept,e.role,e.gender||'—',e.country||'—'].map(v=>`<td style="padding:6px 8px;font-size:11px;background:rgba(255,255,255,0.015);border-bottom:1px solid ${C.gb}">${v}</td>`).join('')}</tr>`).join('');
-  
-  $('impPreview').style.display='block';
-  $('impPreview').innerHTML=`<div style="font-size:13px;color:${C.ac};font-weight:600;margin-bottom:8px">📋 معاينة (${empData.length} موظف):</div>
-    <div style="overflow-x:auto;max-height:300px;overflow-y:auto"><table style="width:100%;border-collapse:collapse"><thead><tr>${['#','الاسم','English','uid','الإيميل','القسم','الدور','الجنس','البلد'].map(h=>`<th style="text-align:right;padding:6px 8px;font-size:10px;color:${C.dim};border-bottom:1px solid ${C.gb}">${h}</th>`).join('')}</tr></thead><tbody>${prevRows}</tbody></table></div>`;
-}
-
-window.confirmImport=async function(){
-  if(!S_importData||!S_importData.length)return;
-  const msg=$('impMsg');msg.style.display='block';
-  
-  const emps=getEmpList();
-  let added=0,updated=0,skipped=0;
-  
-  S_importData.forEach(e=>{
-    const existing=emps.findIndex(x=>x.email===e.email||x.uid===e.uid);
-    
-    if(existing>=0){
-      // Update existing employee with new data
-      const emp=emps[existing];
-      if(e.nameAr)emp.name=e.nameAr;
-      if(e.nameEn)emp.nameEn=e.nameEn;
-      if(e.phone)emp.phone=e.phone;
-      if(e.age)emp.age=e.age;
-      if(e.gender)emp.gender=e.gender;
-      if(e.country)emp.country=e.country;
-      if(e.dept)emp.dept=e.dept;
-      if(e.role)emp.role=e.role;
-      if(e.sup)emp.sup=e.sup;
-      updated++;
-    }else{
-      // Add new employee
-      emps.push({
-        name:e.nameAr,nameEn:e.nameEn,uid:e.uid,email:e.email,
-        phone:e.phone,age:e.age,gender:e.gender,country:e.country,
-        dept:e.dept,role:e.role,sup:e.sup
-      });
-      // Create user data with default password
-      const ud=loadU(e.email);
-      ud.pass='1234';
-      saveU(ud);
-      added++;
-    }
-  });
-  
-  await setEmps(emps);
-  
-  msg.style.color=C.ac;
-  msg.innerHTML=`✅ تم الاستيراد!<br>➕ جدد: <b>${added}</b> | 🔄 محدّثين: <b>${updated}</b>${skipped?` | ⏭️ تخطي: <b>${skipped}</b>`:''}`;
-  $('impConfirm').style.display='none';
-  S_importData=null;
-  
-  setTimeout(()=>rAdmin(),2000);
-};
-
-// ============ START ============
-(async function(){
-  // Show loading
-  R().innerHTML='<div style="display:flex;min-height:100vh;align-items:center;justify-content:center"><div style="text-align:center"><div style="font-size:40px;margin-bottom:12px">🧠</div><div style="font-family:Readex Pro;font-size:18px;font-weight:700;margin-bottom:8px">منصة التدريب الذهني</div><div style="color:#6B7A90;font-size:13px">جاري التحميل...</div></div></div>';
-  // Load employee list from Firebase
-  try{await getEmpsAsync();}catch(e){console.warn('Init emps:',e);}
-  showLogin();
-})();
-</script>
-</body>
-</html>
